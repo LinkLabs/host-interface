@@ -7,6 +7,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef USE_FREERTOS
+#include "FreeRTOSConfig.h"
+#include "FreeRTOS.h"
+#endif
 #ifndef NULL    // <time.h> defines NULL on *some* platforms
 #define NULL                (0)
 #endif
@@ -324,10 +328,10 @@ int32_t ll_bootloader_mode(void)
 }
 
 /**
- * @return
- *   0 - success
- *   negative = error, as defined by hal_read_write
- */
+* @return
+*   0 - success
+*   negative = error, as defined by hal_read_write
+*/
 int32_t ll_irq_flags(uint32_t flags_to_clear, uint32_t *flags)
 {
     // Assuming big endian convention over the interface
@@ -426,24 +430,24 @@ int32_t ll_reset_state( void )
 
 
 /**
- * @brief
- *  send_packet
- *
- * @param[in] op
- *   opcode of the command being sent to the module
- *
- * @param[in] message_num
- *   message_num
- *
- * @param[in] buf
- *   byte array containing the data payload to be sent to the module
- *
- * @param[in] len
- *   size of the output buffer in bytes
- *
- * @return
- *   none
- */
+* @brief
+*  send_packet
+*
+* @param[in] op
+*   opcode of the command being sent to the module
+*
+* @param[in] message_num
+*   message_num
+*
+* @param[in] buf
+*   byte array containing the data payload to be sent to the module
+*
+* @param[in] len
+*   size of the output buffer in bytes
+*
+* @return
+*   none
+*/
 static void send_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t len)
 {
     #define SP_NUM_ZEROS (4)
@@ -482,42 +486,42 @@ static void send_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t
 }
 
 /**
- * @brief
- *   recv_packet
- *
- * @param[in] op
- *   opcode of the command that we're trying to receive
- *
- * @param[in] message_num
- *   message number of the command that we're trying to receive
- *
- * @param[in] buf
- *   byte array for storing data returned from the module
- *
- * @param[in] len
- *   size of the output buffer in bytes
- *
- * @return
- *   positive number of bytes returned,
- *   negative if an error
- *   Error Codes:
- *       -1 NACK received - Command not supported
- *       -2 NACK received - Incorrect Checksum
- *       -3 NACK received - Payload length out of range
- *       -4 NACK received - Payload out of range
- *       -5 NACK received - Not allowed, bootup in progress
- *       -6 NACK received - Busy try again
- *       -7 NACK received - Application token not registered
- *       -8 NACK received - Payload length greater than maximum supported length
- *      -99 NACK received - Other
- *     -103 Message Number in response doesn't match expected
- *     -104 Checksum mismatch
- *     -105 Command mismatch (responding to a different command)
- *     -106 Timed out waiting for Rx bytes from interface
- *     -107 Response larger than provided output buffer
- *     -108 transport_read failed getting FRAME_START
- *     -109 transport_read failed getting header
- */
+* @brief
+*   recv_packet
+*
+* @param[in] op
+*   opcode of the command that we're trying to receive
+*
+* @param[in] message_num
+*   message number of the command that we're trying to receive
+*
+* @param[in] buf
+*   byte array for storing data returned from the module
+*
+* @param[in] len
+*   size of the output buffer in bytes
+*
+* @return
+*   positive number of bytes returned,
+*   negative if an error
+*   Error Codes:
+*       -1 NACK received - Command not supported
+*       -2 NACK received - Incorrect Checksum
+*       -3 NACK received - Payload length out of range
+*       -4 NACK received - Payload out of range
+*       -5 NACK received - Not allowed, bootup in progress
+*       -6 NACK received - Busy try again
+*       -7 NACK received - Application token not registered
+*       -8 NACK received - Payload length greater than maximum supported length
+*      -99 NACK received - Other
+*     -103 Message Number in response doesn't match expected
+*     -104 Checksum mismatch
+*     -105 Command mismatch (responding to a different command)
+*     -106 Timed out waiting for Rx bytes from interface
+*     -107 Response larger than provided output buffer
+*     -108 transport_read failed getting FRAME_START
+*     -109 transport_read failed getting header
+*/
 static int32_t recv_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t len)
 {
     uint8_t  header_buf[RESP_HEADER_LEN];
@@ -531,14 +535,14 @@ static int32_t recv_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint1
 
     memset(header_buf, 0, sizeof(header_buf));
     //TODO: have conditionally compiled cases for various platforms to ensure accurate timeout
-    clock_t max_clock = (clock_t) (1.5 * (float)CLOCKS_PER_SEC);
-    clock_t t = clock();
+    clock_t max_clock = (clock_t) (1.5 * 1000 / portTICK_RATE_MS);
+    clock_t t = xTaskGetTickCount();
 
     do
     {
         /* Timeout of infinite Rx loop if responses never show up*/
         ret = transport_read(&curr_byte, 1);
-        if((clock()- t) > max_clock)
+        if((xTaskGetTickCount()- t) > max_clock)
         {
             len = 0;
             return LL_IFC_ERROR_HOST_INTERFACE_TIMEOUT;
@@ -638,24 +642,24 @@ static int32_t recv_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint1
 }
 
 /**
- * @brief
- *   compute_checksum
- *
- * @param[in] hdr
- *   header array to compute checksum on
- *
- * @param[in] hdr_len
- *   size of the header array in bytes
- *
- * @param[in] payload
- *   payload array to compute checksum on
- *
- * @param[in] payload_len
- *   size of the payload array in bytes
- *
- * @return
- *   The 8-bit checksum
- */
+* @brief
+*   compute_checksum
+*
+* @param[in] hdr
+*   header array to compute checksum on
+*
+* @param[in] hdr_len
+*   size of the header array in bytes
+*
+* @param[in] payload
+*   payload array to compute checksum on
+*
+* @param[in] payload_len
+*   size of the payload array in bytes
+*
+* @return
+*   The 8-bit checksum
+*/
 static uint16_t compute_checksum(uint8_t *hdr, uint16_t hdr_len, uint8_t *payload, uint16_t payload_len)
 {
     uint16_t crc = 0x0;
