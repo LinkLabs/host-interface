@@ -15,7 +15,7 @@
  */
 
 #define IFC_VERSION_MAJOR (0)
-#define IFC_VERSION_MINOR (5)
+#define IFC_VERSION_MINOR (6)
 #define IFC_VERSION_TAG (0)
 
 #define APP_TOKEN_LEN (10)
@@ -255,6 +255,7 @@ typedef enum ll_ifc_error_codes_e {
     LL_IFC_ERROR_TIMEOUT                    = -110, ///< The operation timed out.
     LL_IFC_ERROR_INCORRECT_MESSAGE_SIZE     = -111, ///< The message size from the device was incorrect.
     LL_IFC_ERROR_NO_NETWORK                 = -112, ///< No network was available.
+    LL_IFC_ERROR_HAL_CALL_FAILED            = -113, ///< A User defined function failed.
     /* When adding a new value, update ll_return_code_name() and ll_return_code_description() */
 } ll_ifc_error_codes_t;
 
