@@ -530,15 +530,24 @@ static int32_t recv_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint1
     int32_t ret;
 
     memset(header_buf, 0, sizeof(header_buf));
-    //TODO: have conditionally compiled cases for various platforms to ensure accurate timeout
-    clock_t max_clock = (clock_t) (1.5 * (float)CLOCKS_PER_SEC);
-    clock_t t = clock();
+
+    struct time time_start, time_now;
+    if (gettime(&time_start) < 0)
+    {
+        return LL_IFC_ERROR_HAL_CALL_FAILED;
+    }
 
     do
     {
         /* Timeout of infinite Rx loop if responses never show up*/
         ret = transport_read(&curr_byte, 1);
-        if((clock()- t) > max_clock)
+
+        if (gettime(&time_now) < 0)
+        {
+            return LL_IFC_ERROR_HAL_CALL_FAILED;
+        }
+
+        if(time_now.tv_sec - time_start.tv_sec > 2)
         {
             len = 0;
             return LL_IFC_ERROR_HOST_INTERFACE_TIMEOUT;
