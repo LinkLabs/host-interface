@@ -15,7 +15,7 @@
  */
 
 #define IFC_VERSION_MAJOR (0)
-#define IFC_VERSION_MINOR (5)
+#define IFC_VERSION_MINOR (6)
 #define IFC_VERSION_TAG (0)
 
 #define APP_TOKEN_LEN (10)
