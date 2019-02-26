@@ -342,7 +342,7 @@ int32_t ll_system_time_get(llabs_time_info_t *time_info)
     {
         return LL_IFC_ERROR_INCORRECT_PARAMETER;
     }
-    int32_t ret = hal_read_write(OP_SYSTEM_TIME_GET, NULL, 0, buff, STATS_SIZE);
+    int32_t ret = hal_read_write(OP_SYSTEM_TIME_GET, NULL, 0, buff, TIME_INFO_SIZE);
     ll_time_deserialize(buff, time_info);
     return ret;
 }
