@@ -8,16 +8,6 @@
 #define STATS_SIZE (10 * 4)
 #define TIME_INFO_SIZE (6 * 2 + 1)
 
-#ifndef PACKED
-#ifdef __GNU_C__
-    #define PACKED __attribute ((__packed__))
-#else
-    #ifndef PACKED
-        #define PACKED
-    #endif
-#endif
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
