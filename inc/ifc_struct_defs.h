@@ -2,6 +2,7 @@
 #define __IFC_STRUCT_DEFS_H_
 
 #include <stdint.h>
+#include <app_util_platform.h>
 
 #define NET_INFO_BUFF_SIZE (30)
 #define DL_BAND_CFG_SIZE (3 * 4 + 2)
@@ -22,7 +23,6 @@ extern "C" {
  * @brief
  * @{
  */
-
 
 typedef enum
 {
