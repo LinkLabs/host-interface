@@ -275,7 +275,7 @@ static uint8_t ll_ftp_ack_segs_request_generate(ll_ftp_t* f)
 
     // check max length number of retry segments
     uint16_t num_missing_segs = ll_ftp_get_missing_segs(f, true);
-    uint8_t return_len = BASE_UL_MSG_LEN;
+    uint16_t return_len = BASE_UL_MSG_LEN;
     if(MAX_NUM_RETRY_SEGS <= num_missing_segs)
     {
         f->tx_buf[LL_FTP_ACK_ACK_TYPE_INDEX] = ACK_NAK;
@@ -285,7 +285,7 @@ static uint8_t ll_ftp_ack_segs_request_generate(ll_ftp_t* f)
         return_len += num_missing_segs * sizeof(uint16_t);
     }
 
-    uint32_t crc = crc32(0, &f->tx_buf[LL_FTP_ACK_ACK_TYPE_INDEX], return_len - LL_FTP_ACK_ACK_TYPE_INDEX);
+    uint32_t crc = crc32(0, &f->tx_buf[LL_FTP_ACK_ACK_TYPE_INDEX], (size_t) return_len - LL_FTP_ACK_ACK_TYPE_INDEX);
     UINT32_TO_BYTESTREAM((&f->tx_buf[LL_FTP_MSG_CRC_INDEX]), crc);
 
     return return_len;
