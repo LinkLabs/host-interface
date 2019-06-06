@@ -339,6 +339,7 @@ static int32_t ll_ftp_idle_start(ll_ftp_t* f)
 
 static int32_t ll_ftp_segment_start(ll_ftp_t* f, ll_ftp_msg_t* msg)
 {
+    ll_ftp_return_code_t msg_ret;
     int32_t ret = LL_FTP_NO_ACTION;
 
     int32_t cb_ret = f->cb.open(msg->file_id, msg->file_version, msg->file_size);
@@ -352,7 +353,11 @@ static int32_t ll_ftp_segment_start(ll_ftp_t* f, ll_ftp_msg_t* msg)
     {
         // send ACK_INIT
         uint16_t len = ll_ftp_ack_init_generate(f, false);
-        ll_ftp_send_uplink(f, len);
+        msg_ret = ll_ftp_send_uplink(f, len);
+        if (msg_ret != LL_FTP_OK)
+        {
+            ret = LL_FTP_ERROR;
+        }
     }
 
     return ret;
@@ -360,14 +365,20 @@ static int32_t ll_ftp_segment_start(ll_ftp_t* f, ll_ftp_msg_t* msg)
 
 static int32_t ll_ftp_apply_start(ll_ftp_t* f)
 {
+    ll_ftp_return_code_t msg_ret;
     int32_t ret = LL_FTP_ERROR;
 
     int32_t cb_ret = f->cb.close(f->file_id, f->file_version);
     if(LL_FTP_OK == cb_ret)
     {
         uint16_t len = ll_ftp_ack_segs_complete_generate(f);
-        ll_ftp_send_uplink(f, len);
+        
         ret = LL_FTP_OK;
+        msg_ret = ll_ftp_send_uplink(f, len);
+        if (msg_ret != LL_FTP_OK)
+        {
+            ret = LL_FTP_ERROR;
+        }
     }
 
     return ret;
@@ -558,6 +569,7 @@ static int32_t ll_ftp_transition_out_of_segment(ll_ftp_t* f, ll_ftp_msg_t* msg, 
 
 static int32_t ll_ftp_segment_process_msg(ll_ftp_t* f, uint8_t* buf, uint8_t len)
 {
+    ll_ftp_return_code_t msg_ret;
     ll_ftp_msg_t ftp_msg;
     int32_t ret = ll_ftp_parse_rx_msg(buf, len, &ftp_msg);
     if(LL_FTP_OK != ret)
@@ -614,12 +626,18 @@ static int32_t ll_ftp_segment_process_msg(ll_ftp_t* f, uint8_t* buf, uint8_t len
         // Only able to apply in APPLY state
         // send NAK with retry segs
         uint16_t len = ll_ftp_ack_segs_request_generate(f);
-        ll_ftp_send_uplink(f, len);
+        
         ret = LL_FTP_OK;
+        msg_ret = ll_ftp_send_uplink(f, len);
+        if (msg_ret != LL_FTP_OK)
+        {
+            ret = LL_FTP_ERROR;
+        }
     }
     else if(TICK == ftp_msg.msg_type)
     {
         struct time time_now;
+        ret = LL_FTP_OK;
 
         // Rely on a periodic 1 Hz tick to request segments if necessary
         gettime(&time_now);
@@ -628,7 +646,12 @@ static int32_t ll_ftp_segment_process_msg(ll_ftp_t* f, uint8_t* buf, uint8_t len
             if(f->retry_count < LL_FTP_MAX_NUM_RETRIES)
             {
                 uint16_t len = ll_ftp_ack_segs_request_generate(f);
-                ll_ftp_send_uplink(f, len);
+                msg_ret = ll_ftp_send_uplink(f, len);
+                if (msg_ret != LL_FTP_OK)
+                {
+                    ret = LL_FTP_ERROR;
+                }
+        
                 f->retry_count++;
             }
             else
@@ -636,7 +659,6 @@ static int32_t ll_ftp_segment_process_msg(ll_ftp_t* f, uint8_t* buf, uint8_t len
                 next_state = IDLE;
             }
         }
-        ret = LL_FTP_OK;
     }
 
     // Do state transitions out of SEGMENT
@@ -694,6 +716,7 @@ static int32_t ll_ftp_transition_out_of_apply(ll_ftp_t* f, ll_ftp_msg_t* msg, ll
 static int32_t ll_ftp_apply_process_msg(ll_ftp_t* f, uint8_t* buf, uint8_t len)
 {
     ll_ftp_msg_t ftp_msg;
+    ll_ftp_return_code_t msg_ret;
     int32_t ret = ll_ftp_parse_rx_msg(buf, len, &ftp_msg);
 
     if(LL_FTP_OK != ret)
@@ -740,12 +763,17 @@ static int32_t ll_ftp_apply_process_msg(ll_ftp_t* f, uint8_t* buf, uint8_t len)
         }
 
         next_state = IDLE;
-        ll_ftp_send_uplink(f, len);
-
+        msg_ret = ll_ftp_send_uplink(f, len);
+        if (msg_ret != LL_FTP_OK)
+        {
+            ret = LL_FTP_ERROR;
+        }
     }
     else if(TICK == ftp_msg.msg_type)
     {
         struct time time_now;
+        
+        ret = LL_FTP_OK;
 
         // Rely on a periodic 1 Hz tick to request segments if necessary
         gettime(&time_now);
@@ -754,7 +782,12 @@ static int32_t ll_ftp_apply_process_msg(ll_ftp_t* f, uint8_t* buf, uint8_t len)
             if(f->retry_count < LL_FTP_MAX_NUM_RETRIES)
             {
                 uint16_t len = ll_ftp_ack_segs_complete_generate(f);
-                ll_ftp_send_uplink(f, len);
+                msg_ret = ll_ftp_send_uplink(f, len);
+                if (msg_ret != LL_FTP_OK)
+                {
+                    ret = LL_FTP_ERROR;
+                }
+                
                 f->retry_count++;
             }
             else
@@ -762,8 +795,6 @@ static int32_t ll_ftp_apply_process_msg(ll_ftp_t* f, uint8_t* buf, uint8_t len)
                 next_state = IDLE;
             }
         }
-        
-        ret = LL_FTP_OK;
     }
 
     // Do state transitions out of APPLY
