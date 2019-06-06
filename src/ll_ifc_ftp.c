@@ -232,7 +232,7 @@ static uint16_t ll_ftp_get_missing_segs(ll_ftp_t* f, bool fill_buf)
     return num_missing_segs;
 }
 
-static uint8_t ll_ftp_ack_init_generate(ll_ftp_t* f, bool ack)
+static uint16_t ll_ftp_ack_init_generate(ll_ftp_t* f, bool ack)
 {
     f->tx_buf[LL_FTP_MSG_PACKET_TYPE_INDEX] = ACK_INIT;
     if (ack)
@@ -253,7 +253,7 @@ static uint8_t ll_ftp_ack_init_generate(ll_ftp_t* f, bool ack)
     return BASE_UL_MSG_LEN;
 }
 
-static uint8_t ll_ftp_ack_segs_complete_generate(ll_ftp_t* f)
+static uint16_t ll_ftp_ack_segs_complete_generate(ll_ftp_t* f)
 {
     f->tx_buf[LL_FTP_MSG_PACKET_TYPE_INDEX] = ACK_SEGMENT;
     f->tx_buf[LL_FTP_ACK_ACK_TYPE_INDEX] = ACK_ACK;
@@ -266,7 +266,7 @@ static uint8_t ll_ftp_ack_segs_complete_generate(ll_ftp_t* f)
     return BASE_UL_MSG_LEN;
 }
 
-static uint8_t ll_ftp_ack_segs_request_generate(ll_ftp_t* f)
+static uint16_t ll_ftp_ack_segs_request_generate(ll_ftp_t* f)
 {
     f->tx_buf[LL_FTP_MSG_PACKET_TYPE_INDEX] = ACK_SEGMENT;
     f->tx_buf[LL_FTP_ACK_ACK_TYPE_INDEX] = ACK_NAK_SEGMENT;
@@ -291,7 +291,7 @@ static uint8_t ll_ftp_ack_segs_request_generate(ll_ftp_t* f)
     return return_len;
 }
 
-static uint8_t ll_ftp_ack_apply_generate(ll_ftp_t* f, bool success)
+static uint16_t ll_ftp_ack_apply_generate(ll_ftp_t* f, bool success)
 {
     f->tx_buf[LL_FTP_MSG_PACKET_TYPE_INDEX] = ACK_APPLY;
     f->tx_buf[LL_FTP_ACK_ACK_TYPE_INDEX] = (success ? ACK_ACK : ACK_NAK);
