@@ -223,7 +223,7 @@ typedef ll_ftp_return_code_t (*ll_ftp_apply_t)(uint32_t file_id, uint32_t file_v
  * @return
  *   LL_FTP_OK - success, see ::ll_ftp_return_code.
  */
-typedef ll_ftp_return_code_t (*ll_ftp_send_uplink_t)(const uint8_t* buf, uint8_t len, bool acked, uint8_t port);
+typedef ll_ftp_return_code_t (*ll_ftp_send_uplink_t)(const uint8_t* buf, uint16_t len, bool acked, uint8_t port);
 
 /**
  * @brief

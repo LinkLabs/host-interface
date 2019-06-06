@@ -73,7 +73,7 @@ static ll_ftp_return_code_t ll_ftp_send_uplink(ll_ftp_t* f, size_t len)
 {
     uint8_t old_max_port = ll_ul_max_port;
     ll_ul_max_port = LL_FTP_PORT;
-    ll_ftp_return_code_t ret = f->cb.uplink(f->tx_buf, len, true, LL_FTP_PORT);
+    ll_ftp_return_code_t ret = f->cb.uplink(f->tx_buf, (uint16_t) len, true, LL_FTP_PORT);
     ll_ul_max_port = old_max_port;
     gettime(&f->time_last_msg);
     return ret;
@@ -314,7 +314,7 @@ static void ll_ftp_new_file_initialize(ll_ftp_t* f, ll_ftp_msg_t* msg)
     memset(f->rx_segs, 0, sizeof(f->rx_segs[0]) * NUM_RX_SEGS_BITMASK);
 
     // send ACK_INIT
-    uint8_t len = ll_ftp_ack_init_generate(f, true);
+    uint16_t len = ll_ftp_ack_init_generate(f, true);
     ll_ftp_send_uplink(f, len);
 }
 
@@ -351,7 +351,7 @@ static int32_t ll_ftp_segment_start(ll_ftp_t* f, ll_ftp_msg_t* msg)
     else if (TX_INIT == msg->msg_type || TX_SEGMENT == msg->msg_type)
     {
         // send ACK_INIT
-        uint8_t len = ll_ftp_ack_init_generate(f, false);
+        uint16_t len = ll_ftp_ack_init_generate(f, false);
         ll_ftp_send_uplink(f, len);
     }
 
@@ -365,7 +365,7 @@ static int32_t ll_ftp_apply_start(ll_ftp_t* f)
     int32_t cb_ret = f->cb.close(f->file_id, f->file_version);
     if(LL_FTP_OK == cb_ret)
     {
-        uint8_t len = ll_ftp_ack_segs_complete_generate(f);
+        uint16_t len = ll_ftp_ack_segs_complete_generate(f);
         ll_ftp_send_uplink(f, len);
         ret = LL_FTP_OK;
     }
@@ -613,7 +613,7 @@ static int32_t ll_ftp_segment_process_msg(ll_ftp_t* f, uint8_t* buf, uint8_t len
     {
         // Only able to apply in APPLY state
         // send NAK with retry segs
-        uint8_t len = ll_ftp_ack_segs_request_generate(f);
+        uint16_t len = ll_ftp_ack_segs_request_generate(f);
         ll_ftp_send_uplink(f, len);
         ret = LL_FTP_OK;
     }
@@ -627,7 +627,7 @@ static int32_t ll_ftp_segment_process_msg(ll_ftp_t* f, uint8_t* buf, uint8_t len
         {
             if(f->retry_count < LL_FTP_MAX_NUM_RETRIES)
             {
-                uint8_t len = ll_ftp_ack_segs_request_generate(f);
+                uint16_t len = ll_ftp_ack_segs_request_generate(f);
                 ll_ftp_send_uplink(f, len);
                 f->retry_count++;
             }
@@ -726,7 +726,7 @@ static int32_t ll_ftp_apply_process_msg(ll_ftp_t* f, uint8_t* buf, uint8_t len)
     }
     else if ((TX_APPLY == ftp_msg.msg_type) && (IS_MY_FILE))
     {
-        uint8_t len;
+        uint16_t len;
         int32_t cb_ret = f->cb.apply(f->file_id, f->file_version, f->file_size);
         if(LL_FTP_OK == cb_ret)
         {
@@ -753,7 +753,7 @@ static int32_t ll_ftp_apply_process_msg(ll_ftp_t* f, uint8_t* buf, uint8_t len)
         {
             if(f->retry_count < LL_FTP_MAX_NUM_RETRIES)
             {
-                uint8_t len = ll_ftp_ack_segs_complete_generate(f);
+                uint16_t len = ll_ftp_ack_segs_complete_generate(f);
                 ll_ftp_send_uplink(f, len);
                 f->retry_count++;
             }
