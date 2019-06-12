@@ -446,7 +446,7 @@ int32_t ll_reset_state( void )
  */
 static void send_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t len)
 {
-    #define SP_NUM_ZEROS (4)
+    #define SP_NUM_ZEROS (6)
     #define SP_HEADER_SIZE (CMD_HEADER_LEN + SP_NUM_ZEROS)
     uint8_t header_buf[SP_HEADER_SIZE];
     uint8_t checksum_buff[2];
@@ -457,7 +457,7 @@ static void send_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t
     // Send a couple wakeup bytes, just-in-case
     for (i = 0; i < SP_NUM_ZEROS; i++)
     {
-        header_buf[header_idx ++] = 0xff;
+        header_buf[header_idx ++] = 0x5F;
     }
 
     header_buf[header_idx++] = FRAME_START;
