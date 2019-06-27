@@ -22,10 +22,6 @@ static int32_t message_num = 0;
 
 int32_t hal_read_write(opcode_t op, uint8_t buf_in[], uint16_t in_len, uint8_t buf_out[], uint16_t out_len)
 {
-    //  int i;
-    //  int curr_byte;
-    //  int num_bytes;
-
     int32_t ret;
 
     // Error checking:
@@ -105,7 +101,7 @@ char const * ll_return_code_description(int32_t return_code)
 {
     switch (return_code)
     {
-        case -LL_IFC_ACK:                            return "success";
+        case -LL_IFC_ACK:                            return "Success";
         case -LL_IFC_NACK_CMD_NOT_SUPPORTED:         return "Command not supported";
         case -LL_IFC_NACK_INCORRECT_CHKSUM:          return "Incorrect Checksum";
         case -LL_IFC_NACK_PAYLOAD_LEN_OOR:           return "Length of payload sent in command was out of range";
@@ -141,33 +137,51 @@ int32_t ll_firmware_type_get(ll_firmware_type_t *t)
 {
     uint8_t buf[FIRMWARE_TYPE_LEN];
     int32_t ret;
-    if(t == NULL)
+    if(NULL == t)
     {
         return LL_IFC_ERROR_INCORRECT_PARAMETER;
     }
+
     ret = hal_read_write(OP_FIRMWARE_TYPE, NULL, 0, buf, FIRMWARE_TYPE_LEN);
-    if (ret == FIRMWARE_TYPE_LEN)
+    if(ret < 0)
     {
-        t->cpu_code = buf[0] << 8 | buf[1];
-        t->functionality_code = buf[2] << 8 | buf[3];
+        return ret;
     }
-    return ret;
+
+    if(FIRMWARE_TYPE_LEN != ret)
+    {
+        return LL_IFC_ERROR_INCORRECT_RESPONSE_LENGTH;
+    }
+
+    t->cpu_code = buf[0] << 8 | buf[1];
+    t->functionality_code = buf[2] << 8 | buf[3];
+
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_hardware_type_get(ll_hardware_type_t *t)
 {
     uint8_t type;
     int32_t ret;
-    if(t == NULL)
+    if(NULL == t)
     {
         return LL_IFC_ERROR_INCORRECT_PARAMETER;
     }
+
     ret = hal_read_write(OP_HARDWARE_TYPE, NULL, 0, &type, sizeof(type));
-    if (ret == sizeof(type))
+    if(ret < 0)
     {
-        *t = (ll_hardware_type_t) type;
+        return ret;
     }
-    return ret;
+
+    if(sizeof(type) != ret)
+    {
+        return LL_IFC_ERROR_INCORRECT_RESPONSE_LENGTH;
+    }
+
+    *t = (ll_hardware_type_t) type;
+
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 const char * ll_hardware_type_string(ll_hardware_type_t t)
@@ -187,46 +201,66 @@ int32_t ll_interface_version_get(ll_version_t *version)
 {
     uint8_t buf[VERSION_LEN];
     int32_t ret;
-    if(version == NULL)
+    if(NULL == version)
     {
         return LL_IFC_ERROR_INCORRECT_PARAMETER;
     }
+
     ret = hal_read_write(OP_IFC_VERSION, NULL, 0, buf, VERSION_LEN);
-    if (ret == VERSION_LEN)
+    if(ret < 0)
     {
-        version->major = buf[0];
-        version->minor = buf[1];
-        version->tag = buf[2] << 8 | buf[3];
+        return ret;
     }
-    return ret;
+
+    if (VERSION_LEN != ret)
+    {
+        return LL_IFC_ERROR_INCORRECT_RESPONSE_LENGTH;
+    }
+
+    version->major = buf[0];
+    version->minor = buf[1];
+    version->tag = buf[2] << 8 | buf[3];
+
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_version_get(ll_version_t *version)
 {
     uint8_t buf[VERSION_LEN];
     int32_t ret;
-    if(version == NULL)
+    if(NULL == version)
     {
         return LL_IFC_ERROR_INCORRECT_PARAMETER;
     }
+
     ret = hal_read_write(OP_VERSION, NULL, 0, buf, VERSION_LEN);
-    if (ret == VERSION_LEN)
+    if(ret < 0)
     {
-        version->major = buf[0];
-        version->minor = buf[1];
-        version->tag = buf[2] << 8 | buf[3];
+        return ret;
     }
-    return ret;
+
+    if (VERSION_LEN != ret)
+    {
+        return LL_IFC_ERROR_INCORRECT_RESPONSE_LENGTH;
+    }
+
+    version->major = buf[0];
+    version->minor = buf[1];
+    version->tag = buf[2] << 8 | buf[3];
+
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_sleep_block(void)
 {
-    return hal_read_write(OP_SLEEP_BLOCK, (uint8_t*) "1", 1, NULL, 0);
+    int32_t ret = hal_read_write(OP_SLEEP_BLOCK, (uint8_t*) "1", 1, NULL, 0);
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_sleep_unblock(void)
 {
-    return hal_read_write(OP_SLEEP_BLOCK, (uint8_t*) "0", 1, NULL, 0);
+    int32_t ret = hal_read_write(OP_SLEEP_BLOCK, (uint8_t*) "0", 1, NULL, 0);
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_mac_mode_set(ll_mac_type_t mac_mode)
@@ -236,7 +270,8 @@ int32_t ll_mac_mode_set(ll_mac_type_t mac_mode)
         return LL_IFC_ERROR_INCORRECT_PARAMETER;
     }
     uint8_t u8_mac_mode = (uint8_t)mac_mode;
-    return hal_read_write(OP_MAC_MODE_SET, &u8_mac_mode, 1, NULL, 0);
+    int32_t ret = hal_read_write(OP_MAC_MODE_SET, &u8_mac_mode, 1, NULL, 0);
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_mac_mode_get(ll_mac_type_t *mac_mode)
@@ -246,17 +281,19 @@ int32_t ll_mac_mode_get(ll_mac_type_t *mac_mode)
     {
         return LL_IFC_ERROR_INCORRECT_PARAMETER;
     }
+
     uint8_t u8_mac_mode;
     ret = hal_read_write(OP_MAC_MODE_GET, NULL, 0, &u8_mac_mode, sizeof(uint8_t));
     *mac_mode = (ll_mac_type_t)u8_mac_mode;
-    return ret;
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_antenna_set(uint8_t ant)
 {
     if((ant == 1) || (ant == 2))
     {
-        return hal_read_write(OP_ANTENNA_SET, &ant, 1, NULL, 0);
+        int32_t ret = hal_read_write(OP_ANTENNA_SET, &ant, 1, NULL, 0);
+        return (ret >= 0) ? LL_IFC_ACK : ret;
     }
     else
     {
@@ -270,57 +307,75 @@ int32_t ll_antenna_get(uint8_t *ant)
     {
         return LL_IFC_ERROR_INCORRECT_PARAMETER;
     }
-    return hal_read_write(OP_ANTENNA_GET, NULL, 0, ant, 1);
+    int32_t ret = hal_read_write(OP_ANTENNA_GET, NULL, 0, ant, 1);
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_unique_id_get(uint64_t *unique_id)
 {
-    uint8_t buff[8];
+    uint8_t buff[UNIQUE_ID_LEN];
     int32_t ret;
-    int i;
+    uint8_t i;
+
     if (unique_id == NULL)
     {
         return LL_IFC_ERROR_INCORRECT_PARAMETER;
     }
-    ret = hal_read_write(OP_MODULE_ID, NULL, 0, buff, 8);
+
+    ret = hal_read_write(OP_MODULE_ID, NULL, 0, buff, UNIQUE_ID_LEN);
+    if(ret < 0)
+    {
+        return ret;
+    }
+
+    if (UNIQUE_ID_LEN != ret)
+    {
+        return LL_IFC_ERROR_INCORRECT_RESPONSE_LENGTH;
+    }
+
     *unique_id = 0;
-    for (i = 0; i < 8; i++)
+    for (i = 0; i < UNIQUE_ID_LEN; i++)
     {
         *unique_id |= ((uint64_t) buff[i]) << (8 * (7 - i));
     }
 
-    return ret;
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_settings_store(void)
 {
-    return hal_read_write(OP_STORE_SETTINGS, NULL, 0, NULL, 0);
+    int32_t ret = hal_read_write(OP_STORE_SETTINGS, NULL, 0, NULL, 0);
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_settings_delete(void)
 {
-    return hal_read_write(OP_DELETE_SETTINGS, NULL, 0, NULL, 0);
+    int32_t ret = hal_read_write(OP_DELETE_SETTINGS, NULL, 0, NULL, 0);
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_restore_defaults(void)
 {
-    return hal_read_write(OP_RESET_SETTINGS, NULL, 0, NULL, 0);
+    int32_t ret = hal_read_write(OP_RESET_SETTINGS, NULL, 0, NULL, 0);
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_sleep(void)
 {
-    return hal_read_write(OP_SLEEP, NULL, 0, NULL, 0);
+    int32_t ret = hal_read_write(OP_SLEEP, NULL, 0, NULL, 0);
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_reset_mcu(void)
 {
-    return hal_read_write(OP_RESET_MCU, NULL, 0, NULL, 0);
+    int32_t ret = hal_read_write(OP_RESET_MCU, NULL, 0, NULL, 0);
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_bootloader_mode(void)
 {
     send_packet(OP_TRIGGER_BOOTLOADER, message_num, NULL, 0);
-    return 0;
+    return LL_IFC_ACK;
 }
 
 /**
@@ -330,8 +385,12 @@ int32_t ll_bootloader_mode(void)
  */
 int32_t ll_irq_flags(uint32_t flags_to_clear, uint32_t *flags)
 {
-    // Assuming big endian convention over the interface
+    if(NULL == flags)
+    {
+        return LL_IFC_ERROR_INCORRECT_PARAMETER;
+    }
 
+    // Assuming big endian convention over the interface
     uint8_t in_buf[4];
     uint8_t out_buf[4] = {0,0,0,0};
 
@@ -340,19 +399,26 @@ int32_t ll_irq_flags(uint32_t flags_to_clear, uint32_t *flags)
     in_buf[2] = (uint8_t)((flags_to_clear >>  8) & 0xFF);
     in_buf[3] = (uint8_t)((flags_to_clear      ) & 0xFF);
 
-    int32_t rw_response = hal_read_write(OP_IRQ_FLAGS, in_buf, 4, out_buf, 4);
+    int32_t ret = hal_read_write(OP_IRQ_FLAGS, in_buf, 4, out_buf, 4);
 
-    if(rw_response > 0)
+    if(ret < 0)
     {
-        uint32_t flags_temp = 0;
-        flags_temp |= (((uint32_t)out_buf[0]) << 24);
-        flags_temp |= (((uint32_t)out_buf[1]) << 16);
-        flags_temp |= (((uint32_t)out_buf[2]) << 8);
-        flags_temp |= (((uint32_t)out_buf[3]));
-        *flags = flags_temp;
+        return ret;
     }
 
-    return(rw_response);
+    if(4 != ret)
+    {
+        return LL_IFC_ERROR_INCORRECT_RESPONSE_LENGTH;
+    }
+
+    uint32_t flags_temp = 0;
+    flags_temp |= (((uint32_t)out_buf[0]) << 24);
+    flags_temp |= (((uint32_t)out_buf[1]) << 16);
+    flags_temp |= (((uint32_t)out_buf[2]) << 8);
+    flags_temp |= (((uint32_t)out_buf[3]));
+    *flags = flags_temp;
+
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 //STRIPTHIS!START
@@ -446,7 +512,7 @@ int32_t ll_reset_state( void )
  */
 static void send_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t len)
 {
-    #define SP_NUM_ZEROS (6)
+    #define SP_NUM_ZEROS (4)
     #define SP_HEADER_SIZE (CMD_HEADER_LEN + SP_NUM_ZEROS)
     uint8_t header_buf[SP_HEADER_SIZE];
     uint8_t checksum_buff[2];
@@ -457,7 +523,7 @@ static void send_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t
     // Send a couple wakeup bytes, just-in-case
     for (i = 0; i < SP_NUM_ZEROS; i++)
     {
-        header_buf[header_idx ++] = 0x5F;
+        header_buf[header_idx ++] = 0xff;
     }
 
     header_buf[header_idx++] = FRAME_START;
@@ -530,24 +596,15 @@ static int32_t recv_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint1
     int32_t ret;
 
     memset(header_buf, 0, sizeof(header_buf));
-
-    struct time time_start, time_now;
-    if (gettime(&time_start) < 0)
-    {
-        return LL_IFC_ERROR_HAL_CALL_FAILED;
-    }
+    //TODO: have conditionally compiled cases for various platforms to ensure accurate timeout
+    clock_t max_clock = (clock_t) (1.5 * (float)CLOCKS_PER_SEC);
+    clock_t t = clock();
 
     do
     {
         /* Timeout of infinite Rx loop if responses never show up*/
         ret = transport_read(&curr_byte, 1);
-
-        if (gettime(&time_now) < 0)
-        {
-            return LL_IFC_ERROR_HAL_CALL_FAILED;
-        }
-
-        if(time_now.tv_sec - time_start.tv_sec > 2)
+        if((clock()- t) > max_clock)
         {
             len = 0;
             return LL_IFC_ERROR_HOST_INTERFACE_TIMEOUT;

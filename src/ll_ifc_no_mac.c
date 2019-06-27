@@ -30,7 +30,8 @@ int32_t ll_rssi_scan_set(uint32_t u1, uint32_t u2, uint32_t u3, uint32_t u4)
     buf[14] = (u4 >>  8) & 0xFF;
     buf[15] = (u4      ) & 0xFF;
 
-    return hal_read_write(OP_RSSI_SET, buf, 16, NULL, 0);
+    int32_t ret = hal_read_write(OP_RSSI_SET, buf, 16, NULL, 0);
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_rssi_scan_get(uint8_t buf[], uint16_t len, uint8_t *bytes_received)
@@ -47,22 +48,35 @@ int32_t ll_rssi_scan_get(uint8_t buf[], uint16_t len, uint8_t *bytes_received)
     if (rw_response < 0)
     {
         *bytes_received = 0;
-        return(-1);
+        return rw_response;
     }
-    else
-    {
-        *bytes_received = (uint8_t) (rw_response & 0xFF);
-        return(0);
-    }
+
+    *bytes_received = (uint8_t) (rw_response & 0xFF);
+    return (rw_response >= 0) ? LL_IFC_ACK : rw_response;
 }
 
 int32_t ll_radio_params_get(uint8_t *sf, uint8_t *cr, uint8_t *bw, uint32_t *freq,
                             uint16_t *preamble_syms, uint8_t *header_enabled, uint8_t *crc_enabled,
                             uint8_t *iq_inverted)
 {
+    if((NULL == sf) || (NULL == cr) || (NULL == bw) || (NULL == freq) ||
+       (NULL == preamble_syms) || (NULL == header_enabled) || (NULL == crc_enabled) || (NULL == iq_inverted))
+    {
+        return LL_IFC_ERROR_INCORRECT_PARAMETER;
+    }
+
     int32_t ret;
     uint8_t buff[8];
     ret = hal_read_write(OP_GET_RADIO_PARAMS, NULL, 0, buff, 8);
+    if (ret < 0)
+    {
+        return ret;
+    }
+    if (ret != 8)
+    {
+        return LL_IFC_ERROR_INCORRECT_RESPONSE_LENGTH;
+    }
+
 
     *sf = (buff[0] >> 4) + 6;
     *cr = ((buff[0] >> 2) & 0x03) + 1;
@@ -79,7 +93,7 @@ int32_t ll_radio_params_get(uint8_t *sf, uint8_t *cr, uint8_t *bw, uint32_t *fre
     *freq |= (uint32_t)(buff[6] <<  8);
     *freq |= (uint32_t)(buff[7]      );
 
-    return ret;
+    return LL_IFC_ACK;
 }
 
 int32_t ll_radio_params_set(uint8_t flags, uint8_t sf, uint8_t cr, uint8_t bw, uint32_t freq,
@@ -179,7 +193,8 @@ int32_t ll_tx_power_get(int8_t *pwr)
     {
         return LL_IFC_ERROR_INCORRECT_PARAMETER;
     }
-    return hal_read_write(OP_TX_POWER_GET, NULL, 0, (uint8_t *)pwr, 1);
+    int32_t ret = hal_read_write(OP_TX_POWER_GET, NULL, 0, (uint8_t *)pwr, 1);
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_frequency_set(uint32_t freq)
@@ -218,7 +233,8 @@ int32_t ll_sync_word_get(uint8_t *sync_word)
     {
         return LL_IFC_ERROR_INCORRECT_PARAMETER;
     }
-    return hal_read_write(OP_SYNC_WORD_GET, NULL, 0, sync_word, 1);
+    int32_t ret = hal_read_write(OP_SYNC_WORD_GET, NULL, 0, sync_word, 1);
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_echo_mode(void)
@@ -322,7 +338,7 @@ int32_t ll_packet_recv(uint16_t num_timeout_symbols, uint8_t buf[], uint16_t len
     if (rw_response < 0)
     {
         *bytes_received = 0;
-        return(-1);
+        return rw_response;
     }
     else
     {
@@ -358,7 +374,7 @@ int32_t ll_packet_recv_with_rssi(uint16_t num_timeout_symbols, uint8_t buf[], ui
     if (rw_response < 0)
     {
         *bytes_received = 0;
-        return(-1);
+        return rw_response;
     }
     else
     {

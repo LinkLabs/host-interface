@@ -1,11 +1,9 @@
-#include "utils_ftp.h"
 #include "ll_ifc.h"
 #include "embc/fifo.h"
 #include "embc/log.h"
 #include <stdint.h>
 #include <string.h> // memset, memcpy
 #include "ll_ifc_symphony.h"
-#include <sys/time.h>
 
 #include <stdarg.h>
 #include <stddef.h>
@@ -15,11 +13,9 @@
 #define TRANSPORT_LEN_MAX       256
 #define TRANSPORT_INVOKE_MAX    16
 
-
-
 struct fifo8_s * rd_fifo;
 
-uint8_t ll_ul_max_port = 127;
+int32_t ll_ul_max_port = 127;
 
 int32_t ll_config_set(uint32_t net_token, const uint8_t app_token[APP_TOKEN_LEN], enum ll_downlink_mode dl_mode, uint8_t qos)
 {
@@ -51,24 +47,6 @@ void dbc_assert(char const *file, unsigned line, const char * msg) {
     (void) file;
     (void) line;
     (void) msg;
-}
-
-int32_t gettime(struct time *tp)
-{
-    struct timeval tv;
-    static long fake_time = 0;
-
-    assert_true(tp != NULL);
-    if (tp == NULL)
-    {
-        return -1;
-    }
-
-    gettimeofday(&tv, NULL);
-    tp->tv_sec = tv.tv_sec + fake_time;
-    tp->tv_nsec = tv.tv_usec * 1000;
-    fake_time++;
-    return 0;
 }
 
 int32_t sleep_ms(int32_t millis)
@@ -207,12 +185,12 @@ int32_t transport_read(uint8_t *buff, uint16_t len)
 
 void ifc_utils_setup(void)
 {
-    memset(&transport_expect_, 0, sizeof(transport_expect_)); 
+    memset(&transport_expect_, 0, sizeof(transport_expect_));
     assert_int_equal(0, fifo8_alloc(&rd_fifo, TRANSPORT_LEN_MAX + TRANSPORT_INVOKE_MAX));
     assert_true(0 != rd_fifo);
-}    
+}
 
 void ifc_utils_teardown(void)
 {
-    fifo8_free(rd_fifo); 
+    fifo8_free(rd_fifo);
 }

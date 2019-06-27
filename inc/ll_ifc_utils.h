@@ -108,3 +108,4 @@ int32_t ll_difftime_from_now(struct time *a);
 #endif
 
 #endif //__LL_IFC_UTIL_H
+

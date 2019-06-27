@@ -4,13 +4,14 @@
 #include "embc/log.h"
 #include <stdint.h>
 #include <string.h> // memset, memcpy
-
+#include <stdio.h>
 
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>
 #include "cmockery.h"
 
+//#define PRINT_ALL_BYTES
 
 struct fifo8_s * rd_fifo;
 
@@ -134,6 +135,12 @@ int32_t transport_write(uint8_t *buff, uint16_t len)
     struct transport_expect_s * self = &transport_expect_;
     struct transport_single_s * s;
 
+#ifdef PRINT_ALL_BYTES
+    printf("\nWRITE\n");
+    for(int i = 0; i<len; i++) { printf("%x, ", buff[i]); }
+    printf("\n");
+#endif
+
     //assert_int_not_equal(self->head, self->tail); // "write when none expected");
     assert_true(len + self->msg_len <= TRANSPORT_LEN_MAX); // "receive buffer overflow");
     memcpy(&self->msg_buf[self->msg_len], buff, len);
@@ -168,17 +175,24 @@ int32_t transport_read(uint8_t *buff, uint16_t len)
             return 1;
         }
     }
+
+#ifdef PRINT_ALL_BYTES
+    printf("\nREAD\n");
+    for(int i = 0; i<len; i++) { printf("%x, ", buff[i]); }
+    printf("\n");
+#endif
+
     return 0;
 }
 
 void ifc_utils_setup(void)
 {
-    memset(&transport_expect_, 0, sizeof(transport_expect_)); 
+    memset(&transport_expect_, 0, sizeof(transport_expect_));
     assert_int_equal(0, fifo8_alloc(&rd_fifo, TRANSPORT_LEN_MAX + TRANSPORT_INVOKE_MAX));
     assert_true(0 != rd_fifo);
-}    
+}
 
 void ifc_utils_teardown(void)
 {
-    fifo8_free(rd_fifo); 
+    fifo8_free(rd_fifo);
 }

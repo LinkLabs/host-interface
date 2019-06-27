@@ -9,7 +9,7 @@
 # Definitions                                                      #
 ####################################################################
 
-PROJECTNAME = ifc_lib_test
+PROJECTNAME = utils_test
 
 ROOT_DIR = ../../..
 MODULE_DIR = $(ROOT_DIR)/modules
@@ -69,6 +69,7 @@ override ASMFLAGS += -x assembler-with-cpp -Wall -Wextra
 #override LDFLAGS += -Wl,--gc-sections
 
 #LIBS = -Wl,--start-group -lgcc -lc -lnosys   -Wl,--end-group
+LIBS = -lm
 
 INCLUDEPATHS += \
 -I$(MODULE_DIR)/cmockery \
@@ -89,12 +90,11 @@ $(MODULE_DIR)/embc/src/dbc.c \
 $(MODULE_DIR)/embc/src/fifo.c \
 ../src/ifc_struct_defs.c \
 ../src/ll_ifc_no_mac.c \
-../src/ll_ifc_symphony.c \
+../src/ll_ifc_utils.c \
+../src/ll_ifc_ftp.c \
 ../src/ll_ifc.c \
-test_ifc_lib_gen.c \
-test_ifc_lib_symphony.c \
-test_ifc_lib_nomac.c \
-utils_ifc_lib.c \
+utils.c \
+test_ifc_lib_utils.c \
 main.c
 
 s_SRC +=

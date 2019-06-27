@@ -63,11 +63,9 @@ extern "C" {
 
 #define MAX_NUM_SEGMENTS          (9800)    // Can support a 1MB image
 #define MAX_FILE_SEGMENT_BYTES    (107)
-//#define NUM_RX_SEGS_BITMASK       (MAX_NUM_SEGMENTS / 32)
 #define NUM_RX_SEGS_BITMASK       (((MAX_NUM_SEGMENTS % 32) == 0) ? (MAX_NUM_SEGMENTS >> 5) : ((MAX_NUM_SEGMENTS >> 5) + 1))
 #define BASE_UL_MSG_LEN           (14)
 #define MAX_NUM_RETRY_SEGS        (1024)
-//#define LL_FTP_TX_BUF_SIZE        (BASE_UL_MSG_LEN + MAX_NUM_RETRY_SEGS * 2)
 #define LL_FTP_TX_BUF_SIZE        (256)     // Can fit 121 segment requests per payload
 
 
