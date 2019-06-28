@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include "ll_mac_config.h"
+
 #define NET_INFO_BUFF_SIZE (31)
 #define DL_BAND_CFG_SIZE (3 * 4 + 2)
 #define STATS_SIZE (10 * 4)
@@ -15,13 +17,7 @@
 #define GW_SCAN_INFO_BUFF_SIZE (MAX_GW_SCAN_RESULTS * GW_SCAN_INFO_SIZE + 1)
 
 #ifndef PACKED
-#ifdef __GNU_C__
-#define PACKED __attribute((__packed__))
-#else
-#ifndef PACKED
-#define PACKED
-#endif
-#endif
+    #error "PACKED must be defined for the compiler platform"
 #endif
 
 #ifdef __cplusplus

@@ -159,7 +159,8 @@ typedef enum
     LLRXR26_V2     = 2,             ///< 0x02
     LLRLP20_V3     = 3,             ///< 0x03
     LLRXR26_V3     = 4,             ///< 0x04
-    LLREPEATER     = 5              ///< 0x05  AES_TODO - Replace with official part number?
+    LLREPEATER     = 5,             ///< 0x05  AES_TODO - Replace with official part number?
+    LLSLAP_HOST    = 16             ///< 0x10
 } ll_hardware_type_t;
 
 /**
@@ -171,14 +172,16 @@ typedef enum
     CPU_EFM32G210F128    = 1,      ///< 0x01
     CPU_R5F51115ADNE     = 2,      ///< 0x02
     CPU_R5F51116ADNE     = 3,      ///< 0x03
-    CPU_EFM32GG232F1024  = 4       ///< 0x04
+    CPU_EFM32GG232F1024  = 4,      ///< 0x04
+    CPU_NRF52840         = 16      ///< 0x10
 } cpu_code_t;
 
 typedef enum
 {
-    GATEWAY_TX_ONLY = 0,            ///< 0x00
-    MODULE_END_NODE = 1,            ///< 0x01
-    REPEATER_HOST   = 2             ///< 0x02
+    GATEWAY_TX_ONLY     = 0,            ///< 0x00
+    MODULE_END_NODE     = 1,            ///< 0x01
+    REPEATER_HOST       = 2,            ///< 0x02
+    RADIO_INTEGRATED    = 16            ///< 0x10
     // TBD - How to define others ?
 } functionality_code_t;
 
