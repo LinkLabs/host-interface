@@ -96,7 +96,22 @@ extern const llabs_dl_band_cfg_t DL_BAN_BRA;  ///< Brazil DL Band Configuration
 extern const llabs_dl_band_cfg_t DL_BAN_AUS;  ///< Australia DL Band Configuration
 extern const llabs_dl_band_cfg_t DL_BAN_NZL;  ///< New Zealand DL Band Configuration
 extern const llabs_dl_band_cfg_t DL_BAN_ETSI; ///< Europe (ETSI) DL Band Configuration
-
+/**
+ * @brief
+ *   Set the scan attemps on the module
+ *
+ * @details
+ *   Sets the number of times a scan will restart upon a 
+ *   failed scan before going to disconnect idle state.
+ *
+ * @param[in] scan_attempts
+ *   The number of times the scan will restart upon a failed scan.
+ *   0 = Infinite Scan Attempts; Range (1, 65535)
+ *
+ * @return
+ *   0 - success, negative otherwise.
+ */
+int32_t ll_scan_attempts_set(uint16_t scan_attempts);
 
 /**
  * @brief

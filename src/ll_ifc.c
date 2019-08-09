@@ -101,7 +101,7 @@ char const * ll_return_code_description(int32_t return_code)
 {
     switch (return_code)
     {
-        case -LL_IFC_ACK:                            return "Success";
+        case -LL_IFC_ACK:                            return "success";
         case -LL_IFC_NACK_CMD_NOT_SUPPORTED:         return "Command not supported";
         case -LL_IFC_NACK_INCORRECT_CHKSUM:          return "Incorrect Checksum";
         case -LL_IFC_NACK_PAYLOAD_LEN_OOR:           return "Length of payload sent in command was out of range";
@@ -143,7 +143,7 @@ int32_t ll_firmware_type_get(ll_firmware_type_t *t)
     }
 
     ret = hal_read_write(OP_FIRMWARE_TYPE, NULL, 0, buf, FIRMWARE_TYPE_LEN);
-    if(ret < 0)
+    if (ret == 0)
     {
         return ret;
     }
@@ -512,7 +512,7 @@ int32_t ll_reset_state( void )
  */
 static void send_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t len)
 {
-    #define SP_NUM_ZEROS (4)
+    #define SP_NUM_ZEROS (6)
     #define SP_HEADER_SIZE (CMD_HEADER_LEN + SP_NUM_ZEROS)
     uint8_t header_buf[SP_HEADER_SIZE];
     uint8_t checksum_buff[2];
@@ -523,7 +523,7 @@ static void send_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t
     // Send a couple wakeup bytes, just-in-case
     for (i = 0; i < SP_NUM_ZEROS; i++)
     {
-        header_buf[header_idx ++] = 0xff;
+        header_buf[header_idx ++] = 0x5F;
     }
 
     header_buf[header_idx++] = FRAME_START;
@@ -596,15 +596,24 @@ static int32_t recv_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint1
     int32_t ret;
 
     memset(header_buf, 0, sizeof(header_buf));
-    //TODO: have conditionally compiled cases for various platforms to ensure accurate timeout
-    clock_t max_clock = (clock_t) (1.5 * (float)CLOCKS_PER_SEC);
-    clock_t t = clock();
+
+    struct time time_start, time_now;
+    if (gettime(&time_start) < 0)
+    {
+        return LL_IFC_ERROR_HAL_CALL_FAILED;
+    }
 
     do
     {
         /* Timeout of infinite Rx loop if responses never show up*/
         ret = transport_read(&curr_byte, 1);
-        if((clock()- t) > max_clock)
+
+        if (gettime(&time_now) < 0)
+        {
+            return LL_IFC_ERROR_HAL_CALL_FAILED;
+        }
+
+        if(time_now.tv_sec - time_start.tv_sec > 2)
         {
             len = 0;
             return LL_IFC_ERROR_HOST_INTERFACE_TIMEOUT;
@@ -677,13 +686,20 @@ static int32_t recv_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint1
         // Grab the payload if there is supposed to be one
         if ((buf != NULL) && (len > 0))
         {
-            transport_read(buf, len);
+             ret = transport_read(buf, len);
+             if (ret < 0)
+              {
+                 return -2;
+              }
         }
     }
 
     // Finally, make sure the checksum matches
-    transport_read(checksum_buff, 2);
-
+     ret = transport_read(checksum_buff, 2);
+    if (ret < 0)
+    {
+       return -1;
+    }
     computed_checksum = compute_checksum(header_buf, RESP_HEADER_LEN, buf, len);
     uint16_t rx_checksum = ((uint16_t)checksum_buff[0] << 8) + checksum_buff[1];
     if (rx_checksum != computed_checksum)

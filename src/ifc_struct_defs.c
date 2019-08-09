@@ -1,45 +1,40 @@
 #include <stddef.h>
 #include "ifc_struct_defs.h"
 
-uint8_t read_uint8(const uint8_t **buffer)
-{
+uint8_t read_uint8(const uint8_t ** buffer) {
     return *((*buffer)++);
 }
 
-uint16_t read_uint16(const uint8_t **buffer)
-{
-    return (((uint16_t) read_uint8(buffer)) << 8) | ((uint16_t) read_uint8(buffer));
+uint16_t read_uint16(const uint8_t ** buffer) {
+    return (((uint16_t) read_uint8(buffer)) << 8) |
+            ((uint16_t) read_uint8(buffer));
 }
 
-uint32_t read_uint32(const uint8_t **buffer)
-{
-    return (((uint32_t) read_uint16(buffer)) << 16) | ((uint32_t) read_uint16(buffer));
+uint32_t read_uint32(const uint8_t ** buffer) {
+    return (((uint32_t) read_uint16(buffer)) << 16) |
+            ((uint32_t) read_uint16(buffer));
 }
 
-uint64_t read_uint64(const uint8_t **buffer)
-{
-    return (((uint64_t) read_uint32(buffer)) << 32) | ((uint64_t) read_uint32(buffer));
+uint64_t read_uint64(const uint8_t ** buffer) {
+    return (((uint64_t) read_uint32(buffer)) << 32) |
+            ((uint64_t) read_uint32(buffer));
 }
 
-void write_uint8(uint8_t x, uint8_t **buffer)
-{
+void write_uint8(uint8_t x, uint8_t ** buffer) {
     *((*buffer)++) = x;
 }
 
-void write_uint16(uint16_t x, uint8_t **buffer)
-{
+void write_uint16(uint16_t x, uint8_t ** buffer) {
     write_uint8(x >> 8, buffer);
     write_uint8(x, buffer);
 }
 
-void write_uint32(uint32_t x, uint8_t **buffer)
-{
+void write_uint32(uint32_t x, uint8_t ** buffer) {
     write_uint16(x >> 16, buffer);
     write_uint16(x, buffer);
 }
 
-void write_uint64(uint64_t x, uint8_t **buffer)
-{
+void write_uint64(uint64_t x, uint8_t ** buffer) {
     write_uint32(x >> 32, buffer);
     write_uint32(x, buffer);
 }
@@ -47,7 +42,7 @@ void write_uint64(uint64_t x, uint8_t **buffer)
 // Parse a serialized llabs_network_info_t struct.
 void ll_net_info_deserialize(const uint8_t buff[NET_INFO_BUFF_SIZE], llabs_network_info_t *net_info)
 {
-    uint8_t const *b = buff;
+    uint8_t const * b = buff;
     net_info->network_id_node = read_uint32(&b);
     net_info->network_id_gw = read_uint32(&b);
     net_info->gateway_channel = read_uint8(&b);
@@ -63,10 +58,9 @@ void ll_net_info_deserialize(const uint8_t buff[NET_INFO_BUFF_SIZE], llabs_netwo
 
 // Serializes an llabs_network_info_t struct into a buffer to be sent over the host interface.
 // Returns the size of the serialized struct in the buffer.
-uint16_t ll_net_info_serialize(const llabs_network_info_t *net_info,
-                               uint8_t buff[NET_INFO_BUFF_SIZE])
+uint16_t ll_net_info_serialize(const llabs_network_info_t *net_info, uint8_t buff[NET_INFO_BUFF_SIZE])
 {
-    uint8_t *buff_cpy = buff;
+    uint8_t * buff_cpy = buff;
     write_uint32(net_info->network_id_node, &buff_cpy);
     write_uint32(net_info->network_id_gw, &buff_cpy);
     write_uint8(net_info->gateway_channel, &buff_cpy);
@@ -108,7 +102,7 @@ uint16_t ll_gw_scan_result_serialize(llabs_gateway_scan_results_t scan_result, c
 
 void ll_dl_band_cfg_deserialize(const uint8_t buff[DL_BAND_CFG_SIZE], llabs_dl_band_cfg_t *dl_cfg)
 {
-    uint8_t const *b = buff;
+    uint8_t const * b = buff;
     dl_cfg->band_edge_lower = read_uint32(&b);
     dl_cfg->band_edge_upper = read_uint32(&b);
     dl_cfg->band_edge_guard = read_uint32(&b);
@@ -118,7 +112,7 @@ void ll_dl_band_cfg_deserialize(const uint8_t buff[DL_BAND_CFG_SIZE], llabs_dl_b
 
 uint16_t ll_dl_band_cfg_serialize(const llabs_dl_band_cfg_t *dl_cfg, uint8_t buff[DL_BAND_CFG_SIZE])
 {
-    uint8_t *b = buff;
+    uint8_t * b = buff;
     write_uint32(dl_cfg->band_edge_lower, &b);
     write_uint32(dl_cfg->band_edge_upper, &b);
     write_uint32(dl_cfg->band_edge_guard, &b);
@@ -129,7 +123,7 @@ uint16_t ll_dl_band_cfg_serialize(const llabs_dl_band_cfg_t *dl_cfg, uint8_t buf
 
 void ll_stats_deserialize(const uint8_t buff[STATS_SIZE], llabs_stats_t *stats)
 {
-    uint8_t const *b = buff;
+    uint8_t const * b = buff;
     stats->num_send_calls = read_uint32(&b);
     stats->num_pkts_transmitted = read_uint32(&b);
     stats->num_gateway_scans = read_uint32(&b);
@@ -144,7 +138,7 @@ void ll_stats_deserialize(const uint8_t buff[STATS_SIZE], llabs_stats_t *stats)
 
 uint16_t ll_stats_serialize(const llabs_stats_t *stats, uint8_t buff[STATS_SIZE])
 {
-    uint8_t *b = buff;
+    uint8_t * b = buff;
     write_uint32(stats->num_send_calls, &b);
     write_uint32(stats->num_pkts_transmitted, &b);
     write_uint32(stats->num_gateway_scans, &b);
@@ -160,7 +154,7 @@ uint16_t ll_stats_serialize(const llabs_stats_t *stats, uint8_t buff[STATS_SIZE]
 
 void ll_time_deserialize(const uint8_t buff[TIME_INFO_SIZE], llabs_time_info_t *time_info)
 {
-    uint8_t const *b = buff;
+    uint8_t const * b = buff;
     time_info->sync_mode = read_uint8(&b);
     time_info->curr.seconds = read_uint32(&b);
     time_info->curr.millis = read_uint16(&b);
@@ -170,7 +164,7 @@ void ll_time_deserialize(const uint8_t buff[TIME_INFO_SIZE], llabs_time_info_t *
 
 uint16_t ll_time_serialize(const llabs_time_info_t *time_info, uint8_t buff[TIME_INFO_SIZE])
 {
-    uint8_t *b = buff;
+    uint8_t * b = buff;
     write_uint8(time_info->sync_mode, &b);
     write_uint32(time_info->curr.seconds, &b);
     write_uint16(time_info->curr.millis, &b);

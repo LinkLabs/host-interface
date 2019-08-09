@@ -13,7 +13,7 @@ const llabs_dl_band_cfg_t DL_BAN_AUS = {918000000, 926000000, 386703, 3, 0};  //
 const llabs_dl_band_cfg_t DL_BAN_NZL = {921000000, 928000000, 386703, 3, 0};  // New Zealand
 const llabs_dl_band_cfg_t DL_BAN_ETSI = {869100000, 871000000, 386703, 1, 0}; // Europe
 
-static int32_t ll_net_token_get(uint32_t *p_net_token)
+int32_t ll_net_token_get(uint32_t *p_net_token)
 {
     uint8_t buff[4];
     if (p_net_token == NULL)
@@ -39,7 +39,7 @@ static int32_t ll_net_token_get(uint32_t *p_net_token)
     return LL_IFC_ACK;
 }
 
-static int32_t ll_net_token_set(uint32_t net_token)
+int32_t ll_net_token_set(uint32_t net_token)
 {
     if (net_token != 0xFFFFFFFF)
     {
@@ -164,14 +164,6 @@ static int32_t ll_threshold_get(int16_t *threshold)
     return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
-static int32_t ll_scan_attempts_set(uint16_t scan_attempts)
-{
-    uint8_t buf[2];
-    buf[0] = scan_attempts & 0xff;
-    buf[1] = scan_attempts >> 8;
-    int32_t ret = hal_read_write(OP_SCAN_ATTEMPTS_SET, buf, 2, NULL, 0);
-    return (ret >= 0) ? LL_IFC_ACK : ret;
-}
 
 static int32_t ll_scan_attempts_get(uint16_t *scan_attempts)
 {
@@ -186,6 +178,16 @@ static int32_t ll_scan_attempts_left_get(uint16_t *scan_attempts)
     uint8_t buf[2];
     int32_t ret = hal_read_write(OP_SCAN_ATTEMPTS_LEFT, NULL, 0, buf, 2);
     *scan_attempts = ((uint16_t) buf[1] << 8) | buf[0];
+    return (ret >= 0) ? LL_IFC_ACK : ret;
+}
+
+
+int32_t ll_scan_attempts_set(uint16_t scan_attempts)
+{
+    uint8_t buf[2];
+    buf[0] = scan_attempts & 0xff;
+    buf[1] = scan_attempts >> 8;
+    int32_t ret = hal_read_write(OP_SCAN_ATTEMPTS_SET, buf, 2, NULL, 0);
     return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
@@ -380,16 +382,22 @@ int32_t ll_poll_scan_result(llabs_gateway_scan_results_t *scan_result, uint8_t *
         return ret;
     }
 
+    // if only one byte returned then no gateways found.  dont deserialize
+    if (ret == 1)
+    {
+        *num_gw = 0;
+        return LL_IFC_ACK;
+    }
+
     ll_gw_scan_result_deserialize(buff, scan_result, num_gw);
 
     return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
-int32_t
-ll_get_gateway_scan_results(llabs_gateway_scan_results_t (*scan_results)[MAX_GW_SCAN_RESULTS],
+int32_t ll_get_gateway_scan_results(llabs_gateway_scan_results_t (*scan_results)[MAX_GW_SCAN_RESULTS],
                             uint8_t *num_gw)
 {
-    uint8_t gw;
+    uint8_t gw=0;
     *num_gw = 0;
 
     do
@@ -397,13 +405,22 @@ ll_get_gateway_scan_results(llabs_gateway_scan_results_t (*scan_results)[MAX_GW_
         llabs_gateway_scan_results_t scan_result;
 
         int32_t ret = ll_poll_scan_result(&scan_result, &gw);
+        // if scanning will return a NACK_BUSY (6)
+        // if done scanning, but no gateways will return LL_IFC_ACK but no paylaod
+        // if done scanning, and gateway, gw will be non zero and decrement each time called
         if (ret != LL_IFC_ACK)
         {
             return ret;
         }
 
+        // if only
+        if (ret == 1)
+        {
+        }
         // When num_gw is uninitialized, we need to set it with the total
-        // amount of gateways
+        // amount of gateways.  The interface decrements num_gw to use as an index prior to 
+        // sending so we need to add one for number.
+        //
         if (*num_gw == 0)
         {
             *num_gw = gw + 1;

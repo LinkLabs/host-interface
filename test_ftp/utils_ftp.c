@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <string.h> // memset, memcpy
 #include "ll_ifc_symphony.h"
-#include <sys/time.h>
+
 
 #include <stdarg.h>
 #include <stddef.h>

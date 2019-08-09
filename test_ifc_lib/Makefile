@@ -91,11 +91,9 @@ $(MODULE_DIR)/embc/src/fifo.c \
 ../src/ll_ifc_no_mac.c \
 ../src/ll_ifc_symphony.c \
 ../src/ll_ifc.c \
-test_ifc_lib_gen.c \
-test_ifc_lib_symphony.c \
-test_ifc_lib_nomac.c \
-utils_ifc_lib.c \
-main.c
+../test/test_ifc_lib.c \
+../test/utils_ifc_lib.c \
+../test/main.c
 
 s_SRC +=
 

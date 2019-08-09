@@ -3,8 +3,6 @@
 
 #include <stdint.h>
 
-#include "ll_mac_config.h"
-
 #define NET_INFO_BUFF_SIZE (31)
 #define DL_BAND_CFG_SIZE (3 * 4 + 2)
 #define STATS_SIZE (10 * 4)
@@ -17,7 +15,15 @@
 #define GW_SCAN_INFO_BUFF_SIZE (MAX_GW_SCAN_RESULTS * GW_SCAN_INFO_SIZE + 1)
 
 #ifndef PACKED
-    #error "PACKED must be defined for the compiler platform"
+#if defined ( __CC_ARM )
+    #define PACKED(TYPE) __packed TYPE
+#elif defined(__GNUC__) || defined(__GNU_C__)
+    #define PACKED __attribute__ ((packed))
+#elif defined (__ICCARM__)
+    #define PACKED_STRUCT __packed struct
+#else
+    #error "PACKED must be defined for the platform!"
+#endif
 #endif
 
 #ifdef __cplusplus
@@ -35,11 +41,13 @@ extern "C" {
  * @{
  */
 
-typedef enum {
-    LLABS_CONNECT_INITIAL = 0,  ///< 0x00
-    LLABS_CONNECT_DISCONNECTED, ///< 0x01
-    LLABS_CONNECT_CONNECTED,    ///< 0x02
-    LLABS_NUM_CONNECT_STATUSES  ///< 0x03
+
+typedef enum
+{
+    LLABS_CONNECT_INITIAL = 0,      ///< 0x00
+    LLABS_CONNECT_DISCONNECTED,     ///< 0x01
+    LLABS_CONNECT_CONNECTED,        ///< 0x02
+    LLABS_NUM_CONNECT_STATUSES      ///< 0x03
 } llabs_connect_status_t;
 
 typedef struct PACKED llabs_network_info_t
@@ -69,18 +77,16 @@ typedef struct PACKED llabs_dl_band_cfg
 
 typedef struct llabs_stats
 {
-    uint32_t num_send_calls;         ///< Number of times SendMessage has been called successfully
-    uint32_t num_pkts_transmitted;   ///< Number of packet transmissions (includes retries)
-    uint32_t num_gateway_scans;      ///< Number of gateway scans
-    uint32_t num_collisions;         ///< Number of CSMA collisions detected
-    uint32_t num_ack_successes;      ///< Number of successful acknowledgments
-    uint32_t num_ack_failures;       ///< Number of failed acknowledgments
-    uint32_t num_sync_failures;      ///< Number of Sync failures
-    uint32_t num_canceled_pkts_ack;  ///< Number of times packet was canceled due to
-                                     /// LLABS_ACK_FAIL_RETRIES
-    uint32_t num_canceled_pkts_csma; ///< Number of times packet was canceled due to
-                                     /// LLABS_MAX_CSMA_COLLISIONS
-    uint32_t num_rx_errors;          ///< Number of times we received a Rx error from the back end
+    uint32_t num_send_calls;            ///< Number of times SendMessage has been called successfully
+    uint32_t num_pkts_transmitted;      ///< Number of packet transmissions (includes retries)
+    uint32_t num_gateway_scans;         ///< Number of gateway scans
+    uint32_t num_collisions;            ///< Number of CSMA collisions detected
+    uint32_t num_ack_successes;         ///< Number of successful acknowledgments
+    uint32_t num_ack_failures;          ///< Number of failed acknowledgments
+    uint32_t num_sync_failures;         ///< Number of Sync failures
+    uint32_t num_canceled_pkts_ack;     ///< Number of times packet was canceled due to LLABS_ACK_FAIL_RETRIES
+    uint32_t num_canceled_pkts_csma;    ///< Number of times packet was canceled due to LLABS_MAX_CSMA_COLLISIONS
+    uint32_t num_rx_errors;             ///< Number of times we received a Rx error from the back end
 } llabs_stats_t;
 
 typedef struct PACKED llabs_gateway_scan_results
@@ -94,13 +100,13 @@ typedef struct PACKED llabs_gateway_scan_results
 
 typedef struct PACKED llabs_time
 {
-    uint32_t seconds; ///< Seconds since UNIX epoch 00:00:00 UTC on 1 January 1970
-    uint16_t millis;  ///< number of milliseconds since time seconds since the epoch
+    uint32_t seconds;                   ///< Seconds since UNIX epoch 00:00:00 UTC on 1 January 1970
+    uint16_t millis;                    ///< number of milliseconds since time seconds since the epoch
 } llabs_time_t;
 
 typedef struct PACKED llabs_time_info
 {
-    uint8_t sync_mode; ///< 0: Time sync only when requested, 1: Time sync opportunistically
+    uint8_t sync_mode;                  ///< 0: Time sync only when requested, 1: Time sync opportunistically
     llabs_time_t curr;
     llabs_time_t last_sync;
 } llabs_time_info_t;
@@ -155,7 +161,7 @@ uint16_t ll_time_serialize(const llabs_time_info_t *time_info, uint8_t buff[TIME
  * @return
  *   The u8 read from the buffer.
  */
-uint8_t read_uint8(const uint8_t **buffer);
+uint8_t read_uint8(const uint8_t ** buffer);
 
 /**
  * @brief
@@ -169,7 +175,7 @@ uint8_t read_uint8(const uint8_t **buffer);
  * @return
  *   The u16 read from the buffer.
  */
-uint16_t read_uint16(const uint8_t **buffer);
+uint16_t read_uint16(const uint8_t ** buffer);
 
 /**
  * @brief
@@ -183,7 +189,7 @@ uint16_t read_uint16(const uint8_t **buffer);
  * @return
  *   The u32 read from the buffer.
  */
-uint32_t read_uint32(const uint8_t **buffer);
+uint32_t read_uint32(const uint8_t ** buffer);
 
 /**
  * @brief
@@ -197,7 +203,7 @@ uint32_t read_uint32(const uint8_t **buffer);
  * @return
  *   The u64 read from the buffer.
  */
-uint64_t read_uint64(const uint8_t **buffer);
+uint64_t read_uint64(const uint8_t ** buffer);
 
 /**
  * @brief
@@ -211,7 +217,7 @@ uint64_t read_uint64(const uint8_t **buffer);
  *   The pointer to the big-endian buffer.  The pointer is
  *   incremented to the next location past the value written.
  */
-void write_uint8(uint8_t x, uint8_t **buffer);
+void write_uint8(uint8_t x, uint8_t ** buffer);
 
 /**
  * @brief
@@ -225,7 +231,7 @@ void write_uint8(uint8_t x, uint8_t **buffer);
  *   The pointer to the big-endian buffer.  The pointer is
  *   incremented to the next location past the value written.
  */
-void write_uint16(uint16_t x, uint8_t **buffer);
+void write_uint16(uint16_t x, uint8_t ** buffer);
 
 /**
  * @brief
@@ -239,7 +245,7 @@ void write_uint16(uint16_t x, uint8_t **buffer);
  *   The pointer to the big-endian buffer.  The pointer is
  *   incremented to the next location past the value written.
  */
-void write_uint32(uint32_t x, uint8_t **buffer);
+void write_uint32(uint32_t x, uint8_t ** buffer);
 
 /**
  * @brief
@@ -253,7 +259,7 @@ void write_uint32(uint32_t x, uint8_t **buffer);
  *   The pointer to the big-endian buffer.  The pointer is
  *   incremented to the next location past the value written.
  */
-void write_uint64(uint64_t x, uint8_t **buffer);
+void write_uint64(uint64_t x, uint8_t ** buffer);
 
 /** @} (end defgroup ifc_serialize) */
 
