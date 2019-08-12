@@ -512,18 +512,34 @@ int32_t ll_reset_state( void )
  */
 static void send_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t len)
 {
-    #define SP_NUM_ZEROS (6)
+    #define SP_NUM_WAKEUP_BYTES (5)
+    #define SP_NUM_ZEROS (3)
     #define SP_HEADER_SIZE (CMD_HEADER_LEN + SP_NUM_ZEROS)
+    uint8_t wakeupBuff_buf[SP_HEADER_SIZE];
     uint8_t header_buf[SP_HEADER_SIZE];
     uint8_t checksum_buff[2];
     uint16_t computed_checksum;
     uint16_t header_idx = 0;
     uint16_t i;
 
+     for (i = 0; i < SP_NUM_WAKEUP_BYTES; i++)
+    {
+        wakeupBuff_buf[i] = 0x55;
+    }
+    
+    transport_write(wakeupBuff_buf, SP_NUM_WAKEUP_BYTES);
+
+    for (i = 0; i < 5000; i++)
+    {
+        asm("nop");
+    }
+    
+
+    header_idx=0;
     // Send a couple wakeup bytes, just-in-case
     for (i = 0; i < SP_NUM_ZEROS; i++)
     {
-        header_buf[header_idx ++] = 0x5F;
+        header_buf[header_idx ++] = 0x07;
     }
 
     header_buf[header_idx++] = FRAME_START;
