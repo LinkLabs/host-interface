@@ -230,6 +230,38 @@ int32_t ll_scan_config_set(enum ll_scan_mode scan_mode, int16_t threshold, uint1
  *   0, on success, negative otherwise
  */
 int32_t ll_scan_config_get(enum ll_scan_mode *scan_mode, int16_t *threshold, uint16_t *scan_attempts, uint16_t *scans_left);
+/**
+ * @brief
+ *   Get the current scan mode of the module.
+ *
+ * @details
+ *   Returns the scan mode (NORMAL, INFO, QUICK) of the module set by the user
+ *   (or the defualts if the user didn't get the scan mode
+ *   yet).
+ *
+ * @param[out] scan_mode
+ *  Pointer to the scan mode of the module.
+ *
+ * @return
+ *   0, on success, negative otherwise
+ */
+int32_t ll_scan_mode_get(enum ll_scan_mode *scan_mode);
+
+/**
+ * @brief
+ *   Set the current scan mode of the module.
+ *
+ * @details
+ *   Set the scan mode (NORMAL, INFO, QUICK) of the module 
+ *
+ * @param[out] scan_mode
+ *  scan mode of the module.
+ *
+ * @return
+ *   0, on success, negative otherwise
+ */
+int32_t ll_scan_mode_set(enum ll_scan_mode scan_mode);
+
 
 /**
  * @brief

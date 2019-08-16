@@ -131,14 +131,14 @@ static int32_t ll_qos_get(uint8_t *qos)
     return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
-static int32_t ll_scan_mode_set(enum ll_scan_mode scan_mode)
+int32_t ll_scan_mode_set(enum ll_scan_mode scan_mode)
 {
     uint8_t u8_scan_mode = (uint8_t) scan_mode;
     int32_t ret = hal_read_write(OP_SCAN_MODE_SET, &u8_scan_mode, 1, NULL, 0);
     return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
-static int32_t ll_scan_mode_get(enum ll_scan_mode *scan_mode)
+int32_t ll_scan_mode_get(enum ll_scan_mode *scan_mode)
 {
     uint8_t u8_scan_mode;
     int32_t ret = hal_read_write(OP_SCAN_MODE_GET, NULL, 0, &u8_scan_mode, 1);
@@ -382,13 +382,6 @@ int32_t ll_poll_scan_result(llabs_gateway_scan_results_t *scan_result, uint8_t *
         return ret;
     }
 
-    // if only one byte returned then no gateways found.  dont deserialize
-    if (ret == 1)
-    {
-        *num_gw = 0;
-        return LL_IFC_ACK;
-    }
-
     ll_gw_scan_result_deserialize(buff, scan_result, num_gw);
 
     return (ret >= 0) ? LL_IFC_ACK : ret;
@@ -406,17 +399,16 @@ int32_t ll_get_gateway_scan_results(llabs_gateway_scan_results_t (*scan_results)
 
         int32_t ret = ll_poll_scan_result(&scan_result, &gw);
         // if scanning will return a NACK_BUSY (6)
-        // if done scanning, but no gateways will return LL_IFC_ACK but no paylaod
-        // if done scanning, and gateway, gw will be non zero and decrement each time called
+        // if done scanning, but no gateways will return NACK_NO_DATA but no paylaod
+        // if done scanning, and gateway, will return LL_IFC_ACK and gw will be an index (0-?) 
+        //  and decrement each time called until gw is zero.  Zero is a valid gateway index and last
+        // one in the list.
+        //
         if (ret != LL_IFC_ACK)
         {
             return ret;
         }
 
-        // if only
-        if (ret == 1)
-        {
-        }
         // When num_gw is uninitialized, we need to set it with the total
         // amount of gateways.  The interface decrements num_gw to use as an index prior to 
         // sending so we need to add one for number.
