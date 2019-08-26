@@ -98,6 +98,21 @@ typedef struct PACKED llabs_gateway_scan_results
     uint8_t is_repeater;
 } llabs_gateway_scan_results_t;
 
+typedef struct PACKED llabs_gateway_scan_results_alt
+{
+    uint64_t id;
+    int16_t rssi;
+    int8_t error_count;
+    int8_t channel;
+    uint8_t is_active;
+} llabs_gateway_scan_results_alt_t;
+
+typedef union llabs_gateway_list_data
+{
+    llabs_gateway_scan_results_t gw_results;
+    llabs_gateway_scan_results_alt_t gw_data;
+}llabs_gateway_list_data_t;
+
 typedef struct PACKED llabs_time
 {
     uint32_t seconds;                   ///< Seconds since UNIX epoch 00:00:00 UTC on 1 January 1970
