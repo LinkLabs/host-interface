@@ -9,12 +9,14 @@
 #define TIME_INFO_SIZE (6 * 2 + 1)
 
 #ifndef PACKED
-#ifdef __GNU_C__
-    #define PACKED __attribute ((__packed__))
+#if defined ( __CC_ARM )
+    #define PACKED(TYPE) __packed TYPE
+#elif defined(__GNUC__) || defined(__GNU_C__)
+    #define PACKED __attribute__ ((packed))
+#elif defined (__ICCARM__)
+    #define PACKED_STRUCT __packed struct
 #else
-    #ifndef PACKED
-        #define PACKED
-    #endif
+    #error "PACKED must be defined for the platform!"
 #endif
 #endif
 
