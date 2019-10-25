@@ -522,7 +522,7 @@ static void send_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t
     uint16_t header_idx = 0;
     uint16_t i;
 
-     for (i = 0; i < SP_NUM_WAKEUP_BYTES; i++)
+    for (i = 0; i < SP_NUM_WAKEUP_BYTES; i++)
     {
         wakeupBuff_buf[i] = 0x55;
     }
