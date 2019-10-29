@@ -1,17 +1,26 @@
-#include "ll_ifc.h"
-#include "ll_ifc_consts.h"
-#include "ifc_struct_defs.h"
-#include "ll_ifc_symphony.h"
-#include "ll_ifc_no_mac.h"
-#include <time.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
+
+#include "ifc_struct_defs.h"
+#include "ll_ifc.h"
+#include "ll_ifc_consts.h"
+#include "ll_ifc_symphony.h"
+#include "ll_ifc_no_mac.h"
+
 
 #ifndef NULL    // <time.h> defines NULL on *some* platforms
 #define NULL                (0)
 #endif
 #define CMD_HEADER_LEN      (5)
 #define RESP_HEADER_LEN     (6)
+
+#ifdef _PLATFORM_LINUX
+    #define WAKEUP_BYTE     (0xFF)
+#else
+    #define WAKEUP_BYTE     (0x07)
+#endif
+
 static uint16_t compute_checksum(uint8_t *hdr, uint16_t hdr_len, uint8_t *payload, uint16_t payload_len);
 static void send_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t len);
 static int32_t recv_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t len);
@@ -515,30 +524,28 @@ static void send_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t
     #define SP_NUM_WAKEUP_BYTES (5)
     #define SP_NUM_ZEROS (3)
     #define SP_HEADER_SIZE (CMD_HEADER_LEN + SP_NUM_ZEROS)
-    uint8_t wakeupBuff_buf[SP_HEADER_SIZE];
+    uint8_t wakeup_buf[SP_NUM_WAKEUP_BYTES];
     uint8_t header_buf[SP_HEADER_SIZE];
     uint8_t checksum_buff[2];
     uint16_t computed_checksum;
     uint16_t header_idx = 0;
     uint16_t i;
 
-    for (i = 0; i < SP_NUM_WAKEUP_BYTES; i++)
-    {
-        wakeupBuff_buf[i] = 0x55;
-    }
-    
-    transport_write(wakeupBuff_buf, SP_NUM_WAKEUP_BYTES);
+    // Send the wakeup bytes
+    memset((uint8_t *) wakeup_buf, WAKEUP_BYTE, (size_t) SP_NUM_WAKEUP_BYTES);
+    transport_write(wakeup_buf, SP_NUM_WAKEUP_BYTES);
 
+#ifndef _PLATFORM_LINUX
     for (i = 0; i < 5000; i++)
     {
         asm("nop");
     }
+#endif
     
-    header_idx=0;
-    // Send a couple wakeup bytes, just-in-case
+    // Send the sync bytes
     for (i = 0; i < SP_NUM_ZEROS; i++)
     {
-        header_buf[header_idx ++] = 0x07;
+        header_buf[header_idx++] = 0x07;
     }
 
     header_buf[header_idx++] = FRAME_START;
@@ -547,7 +554,7 @@ static void send_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t
     header_buf[header_idx++] = (uint8_t)(0xFF & (len >> 8));
     header_buf[header_idx++] = (uint8_t)(0xFF & (len >> 0));
 
-    computed_checksum = compute_checksum(header_buf + SP_NUM_ZEROS, CMD_HEADER_LEN, buf, len);
+    computed_checksum = compute_checksum(&header_buf[SP_NUM_ZEROS], CMD_HEADER_LEN, buf, len);
 
     transport_write(header_buf, SP_HEADER_SIZE);
 
@@ -559,7 +566,6 @@ static void send_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t
     checksum_buff[0] = (computed_checksum >> 8);
     checksum_buff[1] = (computed_checksum >> 0);
     transport_write(checksum_buff, 2);
-
 }
 
 /**
