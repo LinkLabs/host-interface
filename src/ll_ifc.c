@@ -101,7 +101,7 @@ char const * ll_return_code_description(int32_t return_code)
 {
     switch (return_code)
     {
-        case -LL_IFC_ACK:                            return "success";
+        case -LL_IFC_ACK:                            return "Success";
         case -LL_IFC_NACK_CMD_NOT_SUPPORTED:         return "Command not supported";
         case -LL_IFC_NACK_INCORRECT_CHKSUM:          return "Incorrect Checksum";
         case -LL_IFC_NACK_PAYLOAD_LEN_OOR:           return "Length of payload sent in command was out of range";
@@ -534,7 +534,6 @@ static void send_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t
         asm("nop");
     }
     
-
     header_idx=0;
     // Send a couple wakeup bytes, just-in-case
     for (i = 0; i < SP_NUM_ZEROS; i++)
@@ -711,7 +710,7 @@ static int32_t recv_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint1
     }
 
     // Finally, make sure the checksum matches
-     ret = transport_read(checksum_buff, 2);
+    ret = transport_read(checksum_buff, 2);
     if (ret < 0)
     {
        return -1;
