@@ -1,6 +1,6 @@
 #ifndef __LL_IFC_H
 #define __LL_IFC_H
-
+#include <stdbool.h>
 #include "ll_ifc_utils.h"
 
 #ifdef __cplusplus
@@ -78,6 +78,7 @@ extern "C" {
      * This function is usually a simple UART wrapper.
      */
     int32_t transport_read(uint8_t *buff, uint16_t len);
+    int32_t transport_read2(uint8_t *buff, uint16_t len);
 
     /**
      * @brief
@@ -526,6 +527,9 @@ extern "C" {
      *   0 - success, negative otherwise.
      */
     int32_t ll_reset_state( void );
+
+    void transport_mutex_release(void);
+    bool transport_mutex_grab(void);
 
     /** @} (end defgroup Module_Interface) */
 
