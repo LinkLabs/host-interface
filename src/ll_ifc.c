@@ -14,11 +14,8 @@
 #define CMD_HEADER_LEN      (5)
 #define RESP_HEADER_LEN     (6)
 
-#ifdef _PLATFORM_LINUX
-    #define WAKEUP_BYTE     (0xFF)
-#else
-    #define WAKEUP_BYTE     (0x07)
-#endif
+
+#define WAKEUP_BYTE     (0xFF)
 
 #define LL_IFC_MSG_BUFF_SIZE 258
 #define LL_IFC_MSG_BUFF_IN_SIZE 126
@@ -51,12 +48,12 @@ int32_t hal_read_write(opcode_t op, uint8_t buf_in[], uint16_t in_len, uint8_t b
     {
         return(LL_IFC_ERROR_INCORRECT_PARAMETER);
     }
-
+    transport_enter_critical();
     // OK, inputs have been sanitized. Carry on...
     send_packet(op, message_num, buf_in, in_len);
+    ret = recv_packet(op, message_num, buf_out, out_len);
 
-    ret = recv_packet2(op, message_num, buf_out, out_len);
-
+    transport_exit_critical();
     message_num++;
 
     return(ret);
@@ -713,25 +710,19 @@ int32_t ll_reset_state( void )
 uint8_t wakeup_buf[SP_NUM_WAKEUP_BYTES];
 uint8_t header_buf[(SP_HEADER_SIZE>RESP_HEADER_LEN)?SP_HEADER_SIZE:RESP_HEADER_LEN];
 uint8_t checksum_buff[SP_NUM_CKSUM_BYTES];
+uint16_t header_idx;
 
 static void send_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t len)
 {
     uint16_t computed_checksum;
-    uint16_t header_idx = 0;
     uint16_t i;
 
+    header_idx = 0;
     // Send the wakeup bytes
     memset((uint8_t *) wakeup_buf, WAKEUP_BYTE, (size_t) SP_NUM_WAKEUP_BYTES);
 
     transport_write(wakeup_buf, SP_NUM_WAKEUP_BYTES);
 
-#ifndef _PLATFORM_LINUX
-    for (i = 0; i < 2000; i++)
-    {
-        asm("nop");
-    }
-#endif
-    
     memset((uint8_t *) header_buf, 0xFF, (size_t) SP_NUM_ZEROS);
  
     header_idx = SP_NUM_ZEROS;
@@ -798,8 +789,6 @@ static uint8_t _ll_ifc_temp_byte;
 
 static int32_t recv_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t len)
 {
-
-    uint16_t header_idx;
     uint16_t computed_checksum;
     int32_t ret_value = 0;
     int32_t ret;
@@ -888,7 +877,6 @@ static int32_t recv_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint1
 
     if (ret_value == 0)
     {
-
         // If we got here, then we:
         // 1) Received the FRAME_START in the response
         // 2) The message number matched
@@ -905,164 +893,21 @@ static int32_t recv_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint1
                  return -2;
               }
         }
-    }
 
-    // Finally, make sure the checksum matches
-    ret = transport_read(checksum_buff, 2);
-    if (ret < 0)
-    {
-       return -2;
-    }
-
-
-    computed_checksum = compute_checksum(header_buf, RESP_HEADER_LEN, buf, len);
-    uint16_t rx_checksum = ((uint16_t)checksum_buff[0] << 8) + checksum_buff[1];
-    if (rx_checksum != computed_checksum)
-    {
-        return LL_IFC_ERROR_CHECKSUM_MISMATCH;
-    }
-
-    if (ret_value == 0)
-    {
-        // Success! Return the number of bytes in the payload (0 or positive number)
-        return len;
-    }
-    else
-    {
-        // Failure! Return an error, such as NACK response from the firmware
-        return ret_value;
-    }
-}
-
-
-
-static int32_t recv_packet2(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t len)
-{
-    uint8_t  header_buf[RESP_HEADER_LEN];
-    uint16_t header_idx;
-
-
-
-    uint16_t computed_checksum;
-    int32_t ret_value = 0;
-    int32_t ret;
-
-    memset(header_buf, 0, sizeof(header_buf));
-
-    struct time time_start, time_now;
-
-    if (gettime(&time_start) < 0)
-    {
-        return LL_IFC_ERROR_HAL_CALL_FAILED;
-    }
-
-    do
-    {
-
-        /* Timeout of infinite Rx loop if responses never show up*/
-        ret = transport_read2(&_ll_ifc_start_byte, 1);
-
-        if (gettime(&time_now) < 0)
+        // Finally, make sure the checksum matches
+        ret = transport_read(checksum_buff, 2);
+        if (ret < 0)
         {
-            return LL_IFC_ERROR_HAL_CALL_FAILED;
-       
-        }
+           return -2;
+         }
 
-        if(time_now.tv_sec - time_start.tv_sec > 2)
+        computed_checksum = compute_checksum(header_buf, RESP_HEADER_LEN, buf, len);
+        uint16_t rx_checksum = ((uint16_t)checksum_buff[0] << 8) + checksum_buff[1];
+        if (rx_checksum != computed_checksum)
         {
-            len = 0;
-            return LL_IFC_ERROR_HOST_INTERFACE_TIMEOUT;
+            return LL_IFC_ERROR_CHECKSUM_MISMATCH;
+
         }
-    } while(_ll_ifc_start_byte != FRAME_START);
-
-    if (ret < 0)
-    {
-        /* transport_read failed - return an error */
-        return LL_IFC_ERROR_START_OF_FRAME;
-    }
-
-    header_idx = 0;
-    header_buf[header_idx++] = FRAME_START;
-
-    ret = transport_read2(header_buf + 1, RESP_HEADER_LEN - 1);
-    if (ret < 0)
-    {
-        /* transport_read failed - return an error */
-        return LL_IFC_ERROR_HEADER;
-    }
-
-    uint16_t len_from_header = (uint16_t)header_buf[5] + ((uint16_t)header_buf[4] << 8);
-
-    if (header_buf[1] != op)
-    {
-        // Command Byte should match what was sent
-        ret_value = LL_IFC_ERROR_COMMAND_MISMATCH;
-    }
-    if (header_buf[2] != message_num)
-    {
-        // Message Number should match
-        ret_value = LL_IFC_ERROR_MESSAGE_NUMBER_MISMATCH;
-    }
-    if (header_buf[3] != 0x00)
-    {
-        // NACK Received
-        // Map NACK code to error code
-        ret_value = 0 - header_buf[3];
-    }
-    if (len_from_header > len)
-    {
-        // response is larger than the caller expects.
-        // Pull the bytes out of the Rx fifo
-        int32_t ret;
-        do
-        {
-
-            ret = transport_read2(&_ll_ifc_temp_byte, 1);
-        }
-        while (ret == 0);
-
-        return LL_IFC_ERROR_BUFFER_TOO_SMALL;
-    }
-    else if (len_from_header < len)
-    {
-        // response is shorter than caller expects.
-        len = len_from_header;
-    }
-
-    if (ret_value == 0)
-    {
-
-        // If we got here, then we:
-        // 1) Received the FRAME_START in the response
-        // 2) The message number matched
-        // 3) The ACK byte was ACK (not NACK)
-        // 4) The received payload length is less than or equal to the size of the buffer
-        //      allocated for the payload
-
-        // Grab the payload if there is supposed to be one
-        if ((buf != NULL) && (len > 0))
-        {
-             ret = transport_read2(buf, len);
-             if (ret < 0)
-              {
-                 return -2;
-              }
-        }
-    }
-
-    // Finally, make sure the checksum matches
-    ret = transport_read2(checksum_buff, 2);
-    if (ret < 0)
-    {
-       return -2;
-    }
-
-
-    computed_checksum = compute_checksum(header_buf, RESP_HEADER_LEN, buf, len);
-    uint16_t rx_checksum = ((uint16_t)checksum_buff[0] << 8) + checksum_buff[1];
-    if (rx_checksum != computed_checksum)
-    {
-        return LL_IFC_ERROR_CHECKSUM_MISMATCH;
     }
 
     if (ret_value == 0)
