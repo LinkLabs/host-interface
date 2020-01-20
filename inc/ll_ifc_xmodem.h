@@ -102,6 +102,10 @@ int32_t ll_xmodem_prepare_module(bool is_host_ifc_active);
  */
 int32_t ll_xmodem_send(ll_xmodem_callbacks_t *cb, uint8_t* payload, size_t len);
 
+int32_t ll_xmodem_send_part(ll_xmodem_callbacks_t *cb, uint8_t* payload, size_t payload_len);
+int32_t ll_xmodem_send_start_xfer(void);
+int32_t ll_xmodem_send_EOF_validate(void);
+
 /** @} (end defgroup XMODEM_Interface) */
 
 /** @} (end addtogroup Link_Labs_Interface_Library) */
