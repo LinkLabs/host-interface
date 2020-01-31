@@ -321,6 +321,69 @@ int32_t transport_write(uint8_t *buff, uint16_t len)
     return ret;
 }
 
+/**
+* @brief
+*   Grabs a recursive mutex used to protect hal_read_write() in ll_ifc and
+*      to make multi-operation ll_ifc calls work atomically.
+*
+* @details
+*   None.
+*
+* @return
+*   0 - success, negative otherwise.
+*/
+bool transport_mutex_grab(void)
+{
+    return true;
+}
+
+/**
+* @brief
+*   Releases the mutex grabbed with transport_mutex_grab().
+*
+* @details
+*   None.
+*
+* @return
+*   1 - success, zero otherwise
+*/
+void transport_mutex_release(void)
+{
+    return;
+}
+
+/**
+* @brief
+*   Implement a critical section if the communication could be interrupted for
+*   extended periods.
+*
+* @details
+*   None.
+*
+* @return
+*   1 - success, zero otherwise
+*/
+bool transport_enter_critical(void)
+{
+  return true;
+}
+
+/**
+* @brief
+*   Implement a critical section if the communication could be interrupted for
+*   extended periods.
+*
+* @details
+*   None.
+*
+* @return
+*   1 - success, zero otherwise.
+*/
+bool transport_exit_critical(void)
+{
+    return true;
+}
+
 static ssize_t read_with_timeout(int fd, void *bf, size_t len, time_t sec)
 {
     fd_set set;
