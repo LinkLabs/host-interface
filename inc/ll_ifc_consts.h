@@ -296,6 +296,9 @@ typedef enum ll_ifc_error_codes_e {
 #define IRQ_FLAGS_TX_ERROR                    (0x00000020UL)  ///< Set every time there is a Tx Error
 #define IRQ_FLAGS_RX_DONE                     (0x00000100UL)  ///< Set every time a new packet is received
 #define IRQ_FLAGS_MAILBOX_EMPTY               (0x00000200UL)  ///< Set when a GW reports an empty mailbox
+
+#define IRQ_FLAGS_SYNC_FAILED                 (0x00000400UL)  ///< Set when syncing to a channel fails
+
 #define IRQ_FLAGS_CONNECTED                   (0x00001000UL)  ///< Set every time we transition from the disconnected -> connected state
 #define IRQ_FLAGS_DISCONNECTED                (0x00002000UL)  ///< Set every time we transition from the connected -> disconnected state
 //STRIPTHIS!START
