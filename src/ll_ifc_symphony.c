@@ -148,6 +148,7 @@ static int32_t ll_receive_mode_set(uint8_t rx_mode)
     }
 
     _ll_ifc_message_buff[0] = rx_mode;
+
     int32_t ret = hal_read_write(OP_RX_MODE_SET, &_ll_ifc_message_buff[0], 1, NULL, 0);
     transport_mutex_release();
     return (ret >= 0) ? LL_IFC_ACK : ret;
@@ -185,9 +186,9 @@ static int32_t ll_qos_request(uint8_t qos)
         return LL_IFC_ERROR_HAL_CALL_FAILED;
     }
 
-    int32_t ret = hal_read_write(OP_QOS_REQUEST, &_ll_ifc_message_buff[0], 1, NULL, 0);
+     _ll_ifc_message_buff[0] = qos;
 
-    qos = _ll_ifc_message_buff[0];
+    int32_t ret = hal_read_write(OP_QOS_REQUEST, &_ll_ifc_message_buff[0], 1, NULL, 0);
 
     transport_mutex_release();
     return (ret >= 0) ? LL_IFC_ACK : ret;
