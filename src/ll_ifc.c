@@ -1,20 +1,32 @@
-#include "ll_ifc.h"
-#include "ll_ifc_consts.h"
-#include "ifc_struct_defs.h"
-#include "ll_ifc_symphony.h"
-#include "ll_ifc_no_mac.h"
-#include <time.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
+
+#include "ifc_struct_defs.h"
+#include "ll_ifc.h"
+#include "ll_ifc_consts.h"
+#include "ll_ifc_symphony.h"
+#include "ll_ifc_no_mac.h"
 
 #ifndef NULL    // <time.h> defines NULL on *some* platforms
 #define NULL                (0)
 #endif
 #define CMD_HEADER_LEN      (5)
 #define RESP_HEADER_LEN     (6)
+
+
+#define WAKEUP_BYTE     (0xFF)
+
+#define LL_IFC_MSG_BUFF_SIZE 258
+#define LL_IFC_MSG_BUFF_IN_SIZE 126
+
+static uint8_t _ll_ifc_msg_buff[LL_IFC_MSG_BUFF_SIZE];
+static uint8_t _ll_ifc_msg_in_buff[LL_IFC_MSG_BUFF_IN_SIZE];
+
 static uint16_t compute_checksum(uint8_t *hdr, uint16_t hdr_len, uint8_t *payload, uint16_t payload_len);
 static void send_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t len);
 static int32_t recv_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t len);
+static int32_t recv_packet2(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t len);
 
 const uint32_t OPEN_NET_TOKEN = 0x4f50454e;
 
@@ -22,10 +34,6 @@ static int32_t message_num = 0;
 
 int32_t hal_read_write(opcode_t op, uint8_t buf_in[], uint16_t in_len, uint8_t buf_out[], uint16_t out_len)
 {
-    //  int i;
-    //  int curr_byte;
-    //  int num_bytes;
-
     int32_t ret;
 
     // Error checking:
@@ -40,12 +48,12 @@ int32_t hal_read_write(opcode_t op, uint8_t buf_in[], uint16_t in_len, uint8_t b
     {
         return(LL_IFC_ERROR_INCORRECT_PARAMETER);
     }
-
+    transport_enter_critical();
     // OK, inputs have been sanitized. Carry on...
     send_packet(op, message_num, buf_in, in_len);
-
     ret = recv_packet(op, message_num, buf_out, out_len);
 
+    transport_exit_critical();
     message_num++;
 
     return(ret);
@@ -53,15 +61,26 @@ int32_t hal_read_write(opcode_t op, uint8_t buf_in[], uint16_t in_len, uint8_t b
 
 int32_t hal_read_write_exact(opcode_t op, uint8_t buf_in[], uint16_t in_len, uint8_t buf_out[], uint16_t out_len)
 {
+    if (!(transport_mutex_grab()))
+    {
+        return LL_IFC_ERROR_HAL_CALL_FAILED;
+    } 
+
     int32_t ret = hal_read_write(op, buf_in, in_len, buf_out, out_len);
     if (ret >= 0)
     {
         if (ret != out_len)
         {
-            return LL_IFC_ERROR_INCORRECT_RESPONSE_LENGTH;
+            ret = LL_IFC_ERROR_INCORRECT_RESPONSE_LENGTH;
         }
-        ret = 0;
+        else
+        {
+            ret = 0;
+        }
     }
+
+    transport_mutex_release();
+
     return ret;
 }
 
@@ -105,7 +124,7 @@ char const * ll_return_code_description(int32_t return_code)
 {
     switch (return_code)
     {
-        case -LL_IFC_ACK:                            return "success";
+        case -LL_IFC_ACK:                            return "Success";
         case -LL_IFC_NACK_CMD_NOT_SUPPORTED:         return "Command not supported";
         case -LL_IFC_NACK_INCORRECT_CHKSUM:          return "Incorrect Checksum";
         case -LL_IFC_NACK_PAYLOAD_LEN_OOR:           return "Length of payload sent in command was out of range";
@@ -139,35 +158,69 @@ char const * ll_return_code_description(int32_t return_code)
 
 int32_t ll_firmware_type_get(ll_firmware_type_t *t)
 {
-    uint8_t buf[FIRMWARE_TYPE_LEN];
+
     int32_t ret;
-    if(t == NULL)
+    if(NULL == t)
     {
         return LL_IFC_ERROR_INCORRECT_PARAMETER;
     }
-    ret = hal_read_write(OP_FIRMWARE_TYPE, NULL, 0, buf, FIRMWARE_TYPE_LEN);
-    if (ret == FIRMWARE_TYPE_LEN)
+
+    if (!(transport_mutex_grab()))
     {
-        t->cpu_code = buf[0] << 8 | buf[1];
-        t->functionality_code = buf[2] << 8 | buf[3];
+        return LL_IFC_ERROR_HAL_CALL_FAILED;
     }
-    return ret;
+
+    ret = hal_read_write(OP_FIRMWARE_TYPE, NULL, 0, &_ll_ifc_msg_buff[0], FIRMWARE_TYPE_LEN);
+    transport_mutex_release();
+
+    if (ret == 0)
+    {
+        //return ret;
+    }
+    else if(FIRMWARE_TYPE_LEN != ret)
+    {
+        ret = LL_IFC_ERROR_INCORRECT_RESPONSE_LENGTH;
+    }
+    else
+    {
+        t->cpu_code = _ll_ifc_msg_buff[0] << 8 | _ll_ifc_msg_buff[1];
+        t->functionality_code = _ll_ifc_msg_buff[2] << 8 | _ll_ifc_msg_buff[3];
+    }
+
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_hardware_type_get(ll_hardware_type_t *t)
 {
-    uint8_t type;
+
     int32_t ret;
-    if(t == NULL)
+    if(NULL == t)
     {
         return LL_IFC_ERROR_INCORRECT_PARAMETER;
     }
-    ret = hal_read_write(OP_HARDWARE_TYPE, NULL, 0, &type, sizeof(type));
-    if (ret == sizeof(type))
+
+    if (!(transport_mutex_grab()))
     {
-        *t = (ll_hardware_type_t) type;
+        return LL_IFC_ERROR_HAL_CALL_FAILED;
     }
-    return ret;
+
+    ret = hal_read_write(OP_HARDWARE_TYPE, NULL, 0, &_ll_ifc_msg_buff[0], sizeof(uint8_t));
+
+    if(ret < 0)
+    {
+        //return ret;
+    }
+    else if(sizeof(uint8_t) != ret)
+    {
+        ret = LL_IFC_ERROR_INCORRECT_RESPONSE_LENGTH;
+    }
+    else
+    {
+        *t = (ll_hardware_type_t) _ll_ifc_msg_buff[0];
+    }
+    
+    transport_mutex_release();
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 const char * ll_hardware_type_string(ll_hardware_type_t t)
@@ -185,48 +238,102 @@ const char * ll_hardware_type_string(ll_hardware_type_t t)
 
 int32_t ll_interface_version_get(ll_version_t *version)
 {
-    uint8_t buf[VERSION_LEN];
     int32_t ret;
-    if(version == NULL)
+    if(NULL == version)
     {
         return LL_IFC_ERROR_INCORRECT_PARAMETER;
     }
-    ret = hal_read_write(OP_IFC_VERSION, NULL, 0, buf, VERSION_LEN);
-    if (ret == VERSION_LEN)
+
+    if (!(transport_mutex_grab()))
     {
-        version->major = buf[0];
-        version->minor = buf[1];
-        version->tag = buf[2] << 8 | buf[3];
+        return LL_IFC_ERROR_HAL_CALL_FAILED;
     }
-    return ret;
+
+    ret = hal_read_write(OP_IFC_VERSION, NULL, 0, &_ll_ifc_msg_buff[0], VERSION_LEN);
+    
+    if(ret < 0)
+    {
+        //return ret;
+    }
+    else if (VERSION_LEN != ret)
+    {
+        ret = LL_IFC_ERROR_INCORRECT_RESPONSE_LENGTH;
+    }
+    else
+    {
+        version->major = _ll_ifc_msg_buff[0];
+        version->minor = _ll_ifc_msg_buff[1];
+        version->tag = _ll_ifc_msg_buff[2] << 8 | _ll_ifc_msg_buff[3];
+    }
+    
+    transport_mutex_release();
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_version_get(ll_version_t *version)
 {
     uint8_t buf[VERSION_LEN];
     int32_t ret;
-    if(version == NULL)
+    if(NULL == version)
     {
         return LL_IFC_ERROR_INCORRECT_PARAMETER;
     }
-    ret = hal_read_write(OP_VERSION, NULL, 0, buf, VERSION_LEN);
-    if (ret == VERSION_LEN)
+
+    if (!(transport_mutex_grab()))
     {
-        version->major = buf[0];
-        version->minor = buf[1];
-        version->tag = buf[2] << 8 | buf[3];
+        return LL_IFC_ERROR_HAL_CALL_FAILED;
     }
-    return ret;
+
+    ret = hal_read_write(OP_VERSION, NULL, 0, &_ll_ifc_msg_buff[0], VERSION_LEN);
+
+    if(ret < 0)
+    {
+        //return ret;
+    }
+    else if (VERSION_LEN != ret)
+    {
+        ret = LL_IFC_ERROR_INCORRECT_RESPONSE_LENGTH;
+    }
+    else 
+    {
+        version->major = _ll_ifc_msg_buff[0];
+        version->minor = _ll_ifc_msg_buff[1];
+        version->tag = _ll_ifc_msg_buff[2] << 8 | _ll_ifc_msg_buff[3];
+    }
+ 
+    transport_mutex_release();
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_sleep_block(void)
 {
-    return hal_read_write(OP_SLEEP_BLOCK, (uint8_t*) "1", 1, NULL, 0);
+    if (!(transport_mutex_grab()))
+    {
+        return LL_IFC_ERROR_HAL_CALL_FAILED;
+    }
+    _ll_ifc_msg_buff[0] = '1';
+    _ll_ifc_msg_buff[1] = 0;
+    int32_t ret = hal_read_write(OP_SLEEP_BLOCK, &_ll_ifc_msg_buff[0], 1, NULL, 0);
+
+    transport_mutex_release();
+
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_sleep_unblock(void)
 {
-    return hal_read_write(OP_SLEEP_BLOCK, (uint8_t*) "0", 1, NULL, 0);
+    if (!(transport_mutex_grab()))
+    {
+        return LL_IFC_ERROR_HAL_CALL_FAILED;
+    }
+
+    _ll_ifc_msg_buff[0] = '0';
+    _ll_ifc_msg_buff[1] = 0;
+    int32_t ret = hal_read_write(OP_SLEEP_BLOCK, &_ll_ifc_msg_buff[0], 1, NULL, 0);
+
+    transport_mutex_release();
+
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_mac_mode_set(ll_mac_type_t mac_mode)
@@ -235,8 +342,18 @@ int32_t ll_mac_mode_set(ll_mac_type_t mac_mode)
     {
         return LL_IFC_ERROR_INCORRECT_PARAMETER;
     }
-    uint8_t u8_mac_mode = (uint8_t)mac_mode;
-    return hal_read_write(OP_MAC_MODE_SET, &u8_mac_mode, 1, NULL, 0);
+    
+    if (!(transport_mutex_grab()))
+    {
+        return LL_IFC_ERROR_HAL_CALL_FAILED;
+    }
+
+    _ll_ifc_msg_buff[0] = (uint8_t)mac_mode;
+    int32_t ret = hal_read_write(OP_MAC_MODE_SET, &_ll_ifc_msg_buff[0], 1, NULL, 0);
+
+    transport_mutex_release();
+
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_mac_mode_get(ll_mac_type_t *mac_mode)
@@ -246,17 +363,37 @@ int32_t ll_mac_mode_get(ll_mac_type_t *mac_mode)
     {
         return LL_IFC_ERROR_INCORRECT_PARAMETER;
     }
-    uint8_t u8_mac_mode;
-    ret = hal_read_write(OP_MAC_MODE_GET, NULL, 0, &u8_mac_mode, sizeof(uint8_t));
-    *mac_mode = (ll_mac_type_t)u8_mac_mode;
-    return ret;
+
+    if (!(transport_mutex_grab()))
+    {
+        return LL_IFC_ERROR_HAL_CALL_FAILED;
+    }
+
+
+    ret = hal_read_write(OP_MAC_MODE_GET, NULL, 0, &_ll_ifc_msg_buff[0], sizeof(uint8_t));
+    *mac_mode = _ll_ifc_msg_buff[0];
+
+    transport_mutex_release();
+
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_antenna_set(uint8_t ant)
 {
     if((ant == 1) || (ant == 2))
     {
-        return hal_read_write(OP_ANTENNA_SET, &ant, 1, NULL, 0);
+        if (!(transport_mutex_grab()))
+        {
+            return LL_IFC_ERROR_HAL_CALL_FAILED;
+        }
+
+        _ll_ifc_msg_buff[0] = ant;
+
+        int32_t ret = hal_read_write(OP_ANTENNA_SET, &_ll_ifc_msg_buff[0], 1, NULL, 0);
+
+        transport_mutex_release();
+
+        return (ret >= 0) ? LL_IFC_ACK : ret;
     }
     else
     {
@@ -270,57 +407,131 @@ int32_t ll_antenna_get(uint8_t *ant)
     {
         return LL_IFC_ERROR_INCORRECT_PARAMETER;
     }
-    return hal_read_write(OP_ANTENNA_GET, NULL, 0, ant, 1);
+    
+    if (!(transport_mutex_grab()))
+    {
+        return LL_IFC_ERROR_HAL_CALL_FAILED;
+    }
+
+    int32_t ret = hal_read_write(OP_ANTENNA_GET, NULL, 0, &_ll_ifc_msg_buff[0], 1);
+    *ant = _ll_ifc_msg_buff[0];
+
+    transport_mutex_release();
+
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_unique_id_get(uint64_t *unique_id)
 {
-    uint8_t buff[8];
     int32_t ret;
-    int i;
+    uint8_t i;
+
     if (unique_id == NULL)
     {
         return LL_IFC_ERROR_INCORRECT_PARAMETER;
     }
-    ret = hal_read_write(OP_MODULE_ID, NULL, 0, buff, 8);
-    *unique_id = 0;
-    for (i = 0; i < 8; i++)
+
+    if (!(transport_mutex_grab()))
     {
-        *unique_id |= ((uint64_t) buff[i]) << (8 * (7 - i));
+        return LL_IFC_ERROR_HAL_CALL_FAILED;
     }
 
-    return ret;
+    ret = hal_read_write(OP_MODULE_ID, NULL, 0,  &_ll_ifc_msg_buff[0], UNIQUE_ID_LEN);
+
+    if(ret < 0)
+    {
+        //return ret;
+    }
+    else if (UNIQUE_ID_LEN != ret)
+    {
+        ret = LL_IFC_ERROR_INCORRECT_RESPONSE_LENGTH;
+    }
+    else
+    {
+        *unique_id = 0;
+        for (i = 0; i < UNIQUE_ID_LEN; i++)
+        {
+            *unique_id |= ((uint64_t) _ll_ifc_msg_buff[i]) << (8 * (7 - i));
+        }
+    }
+    transport_mutex_release();
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_settings_store(void)
 {
-    return hal_read_write(OP_STORE_SETTINGS, NULL, 0, NULL, 0);
+    if (!(transport_mutex_grab()))
+    {
+        return LL_IFC_ERROR_HAL_CALL_FAILED;
+    }
+
+    int32_t ret = hal_read_write(OP_STORE_SETTINGS, NULL, 0, NULL, 0);
+
+    transport_mutex_release();
+
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_settings_delete(void)
 {
-    return hal_read_write(OP_DELETE_SETTINGS, NULL, 0, NULL, 0);
+    if (!(transport_mutex_grab()))
+    {
+        return LL_IFC_ERROR_HAL_CALL_FAILED;
+    }
+
+    int32_t ret = hal_read_write(OP_DELETE_SETTINGS, NULL, 0, NULL, 0);
+
+    transport_mutex_release();
+
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_restore_defaults(void)
 {
-    return hal_read_write(OP_RESET_SETTINGS, NULL, 0, NULL, 0);
+    if (!(transport_mutex_grab()))
+    {
+        return LL_IFC_ERROR_HAL_CALL_FAILED;
+    }
+
+    int32_t ret = hal_read_write(OP_RESET_SETTINGS, NULL, 0, NULL, 0);
+
+    transport_mutex_release();
+
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_sleep(void)
 {
-    return hal_read_write(OP_SLEEP, NULL, 0, NULL, 0);
+    if (!(transport_mutex_grab()))
+    {
+        return LL_IFC_ERROR_HAL_CALL_FAILED;
+    }
+
+    int32_t ret = hal_read_write(OP_SLEEP, NULL, 0, NULL, 0);
+
+    transport_mutex_release();
+
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_reset_mcu(void)
 {
-    return hal_read_write(OP_RESET_MCU, NULL, 0, NULL, 0);
+    if (!(transport_mutex_grab()))
+    {
+        return LL_IFC_ERROR_HAL_CALL_FAILED;
+    }
+
+    int32_t ret = hal_read_write(OP_RESET_MCU, NULL, 0, NULL, 0);
+
+    transport_mutex_release();
+
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_bootloader_mode(void)
 {
     send_packet(OP_TRIGGER_BOOTLOADER, message_num, NULL, 0);
-    return 0;
+    return LL_IFC_ACK;
 }
 
 /**
@@ -330,29 +541,44 @@ int32_t ll_bootloader_mode(void)
  */
 int32_t ll_irq_flags(uint32_t flags_to_clear, uint32_t *flags)
 {
-    // Assuming big endian convention over the interface
-
-    uint8_t in_buf[4];
-    uint8_t out_buf[4] = {0,0,0,0};
-
-    in_buf[0] = (uint8_t)((flags_to_clear >> 24) & 0xFF);
-    in_buf[1] = (uint8_t)((flags_to_clear >> 16) & 0xFF);
-    in_buf[2] = (uint8_t)((flags_to_clear >>  8) & 0xFF);
-    in_buf[3] = (uint8_t)((flags_to_clear      ) & 0xFF);
-
-    int32_t rw_response = hal_read_write(OP_IRQ_FLAGS, in_buf, 4, out_buf, 4);
-
-    if(rw_response > 0)
+    if(NULL == flags)
     {
-        uint32_t flags_temp = 0;
-        flags_temp |= (((uint32_t)out_buf[0]) << 24);
-        flags_temp |= (((uint32_t)out_buf[1]) << 16);
-        flags_temp |= (((uint32_t)out_buf[2]) << 8);
-        flags_temp |= (((uint32_t)out_buf[3]));
-        *flags = flags_temp;
+        return LL_IFC_ERROR_INCORRECT_PARAMETER;
     }
 
-    return(rw_response);
+    if (!(transport_mutex_grab()))
+    {
+        return LL_IFC_ERROR_HAL_CALL_FAILED;
+    }
+
+    // Assuming big endian convention over the interface
+    _ll_ifc_msg_buff[0] = (uint8_t)((flags_to_clear >> 24) & 0xFF);
+    _ll_ifc_msg_buff[1] = (uint8_t)((flags_to_clear >> 16) & 0xFF);
+    _ll_ifc_msg_buff[2] = (uint8_t)((flags_to_clear >>  8) & 0xFF);
+    _ll_ifc_msg_buff[3] = (uint8_t)((flags_to_clear      ) & 0xFF);
+
+    int32_t ret = hal_read_write(OP_IRQ_FLAGS, &_ll_ifc_msg_buff[0], 4, &_ll_ifc_msg_in_buff[0], 4);
+
+    if(ret < 0)
+    {
+        //return ret;
+    }
+    else if(4 != ret)
+    {
+        ret = LL_IFC_ERROR_INCORRECT_RESPONSE_LENGTH;
+    }
+    else 
+    {
+        uint32_t flags_temp = 0;
+        flags_temp |= (((uint32_t)_ll_ifc_msg_in_buff[0]) << 24);
+        flags_temp |= (((uint32_t)_ll_ifc_msg_in_buff[1]) << 16);
+        flags_temp |= (((uint32_t)_ll_ifc_msg_in_buff[2]) << 8);
+        flags_temp |= (((uint32_t)_ll_ifc_msg_in_buff[3]));
+        *flags = flags_temp;
+    }
+    
+    transport_mutex_release();
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 //STRIPTHIS!START
@@ -363,57 +589,90 @@ int32_t ll_timestamp_get(uint32_t * timestamp_us)
 
 int32_t ll_timestamp_set(ll_timestamp_operation_t operation, uint32_t timestamp_us, uint32_t * actual_timestamp_us)
 {
-    uint8_t in_buf[5];
-    uint8_t * b_in = in_buf;
-    uint8_t out_buf[4] = {0,0,0,0};
+    uint8_t * b_out = &_ll_ifc_msg_buff[0];
 
     if (actual_timestamp_us == NULL)
     {
         return LL_IFC_ERROR_INCORRECT_PARAMETER;
     }
 
-    write_uint8((uint8_t) operation, &b_in);
-    write_uint32(timestamp_us, &b_in);
-
-    int32_t rw_response = hal_read_write_exact(OP_TIMESTAMP, in_buf, sizeof(in_buf), out_buf, sizeof(out_buf));
-    if (rw_response >= 0)
+    if (!(transport_mutex_grab()))
     {
-        uint8_t const * b_out = out_buf;
-        *actual_timestamp_us = read_uint32(&b_out);
-        rw_response = 0;
+        return LL_IFC_ERROR_HAL_CALL_FAILED;
     }
 
-    return rw_response;
+    write_uint8((uint8_t) operation, &b_out);
+    write_uint32(timestamp_us, &b_out);
+
+    int32_t ret = hal_read_write_exact(OP_TIMESTAMP, &_ll_ifc_msg_buff[0], 5, &_ll_ifc_msg_in_buff[0], 4);
+
+    if (ret >= 0)
+    {
+        uint8_t const * b_in = &_ll_ifc_msg_in_buff[0];
+        *actual_timestamp_us = read_uint32(&b_in);
+        ret = LL_IFC_ACK;
+    }
+
+    transport_mutex_release();
+
+    return (ret >= 0) ? LL_IFC_ACK : ret;
 }
 
 int32_t ll_trigger_watchdog(void)
 {
     uint8_t cmd_buf[2];
-    cmd_buf[0] = 0x00;
-    cmd_buf[1] = 0x01;
-    return hal_read_write(OP_RESERVED1, cmd_buf, 2, NULL, 0);
+
+    if (!(transport_mutex_grab()))
+    {
+        return LL_IFC_ERROR_HAL_CALL_FAILED;
+    }
+
+    _ll_ifc_msg_buff[0] = 0x00;
+    _ll_ifc_msg_buff[1] = 0x01;
+
+    int32_t ret = hal_read_write(OP_RESERVED1, &_ll_ifc_msg_buff[0], 2, NULL, 0);
+
+    transport_mutex_release();
+
+    return ret;
 }
 
 int32_t ll_get_assert_info(char *filename, uint16_t filename_len, uint32_t *line)
 {
-    uint8_t tmp_arr[4 + 20];
-    int32_t ret = hal_read_write(OP_GET_ASSERT, NULL, 0, tmp_arr, 4 + 20);
+
+    if (!(transport_mutex_grab()))
+    {
+        return LL_IFC_ERROR_HAL_CALL_FAILED;
+    }
+
+    int32_t ret = hal_read_write(OP_GET_ASSERT, NULL, 0, &_ll_ifc_msg_in_buff[0], 4 + 20);
+
     if (ret > 0)
     {
         *line = 0;
-        *line += (uint32_t)(tmp_arr[0]) << 24;
-        *line += (uint32_t)(tmp_arr[1]) << 16;
-        *line += (uint32_t)(tmp_arr[2]) <<  8;
-        *line += (uint32_t)(tmp_arr[3]) <<  0;
+        *line += (uint32_t)(_ll_ifc_msg_in_buff[0]) << 24;
+        *line += (uint32_t)(_ll_ifc_msg_in_buff[1]) << 16;
+        *line += (uint32_t)(_ll_ifc_msg_in_buff[2]) <<  8;
+        *line += (uint32_t)(_ll_ifc_msg_in_buff[3]) <<  0;
 
         uint16_t cpy_len = filename_len < 20 ? filename_len : 20;
-        memcpy(filename, tmp_arr + 4, cpy_len);
+        memcpy(filename, &_ll_ifc_msg_in_buff[4], cpy_len);
     }
+
+    transport_mutex_release();
     return ret;
 }
+
 int32_t ll_trigger_assert(void)
 {
-    return hal_read_write(OP_SET_ASSERT, NULL, 0, NULL, 0);
+    if (!(transport_mutex_grab()))
+    {
+        return LL_IFC_ERROR_HAL_CALL_FAILED;
+    }
+
+    int32_t ret =  hal_read_write(OP_SET_ASSERT, NULL, 0, NULL, 0);
+    transport_mutex_release();
+    return ret;
 }
 
 //STRIPTHIS!STOP
@@ -444,21 +703,29 @@ int32_t ll_reset_state( void )
  * @return
  *   none
  */
+#define SP_NUM_WAKEUP_BYTES (5)
+#define SP_NUM_ZEROS (3)
+#define SP_NUM_CKSUM_BYTES (2)
+#define SP_HEADER_SIZE (CMD_HEADER_LEN + SP_NUM_ZEROS)
+uint8_t wakeup_buf[SP_NUM_WAKEUP_BYTES];
+uint8_t header_buf[(SP_HEADER_SIZE>RESP_HEADER_LEN)?SP_HEADER_SIZE:RESP_HEADER_LEN];
+uint8_t checksum_buff[SP_NUM_CKSUM_BYTES];
+uint16_t header_idx;
+
 static void send_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t len)
 {
-    #define SP_NUM_ZEROS (4)
-    #define SP_HEADER_SIZE (CMD_HEADER_LEN + SP_NUM_ZEROS)
-    uint8_t header_buf[SP_HEADER_SIZE];
-    uint8_t checksum_buff[2];
     uint16_t computed_checksum;
-    uint16_t header_idx = 0;
     uint16_t i;
 
-    // Send a couple wakeup bytes, just-in-case
-    for (i = 0; i < SP_NUM_ZEROS; i++)
-    {
-        header_buf[header_idx ++] = 0xff;
-    }
+    header_idx = 0;
+    // Send the wakeup bytes
+    memset((uint8_t *) wakeup_buf, WAKEUP_BYTE, (size_t) SP_NUM_WAKEUP_BYTES);
+
+    transport_write(wakeup_buf, SP_NUM_WAKEUP_BYTES);
+
+    memset((uint8_t *) header_buf, 0xFF, (size_t) SP_NUM_ZEROS);
+ 
+    header_idx = SP_NUM_ZEROS;
 
     header_buf[header_idx++] = FRAME_START;
     header_buf[header_idx++] = op;
@@ -466,7 +733,7 @@ static void send_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t
     header_buf[header_idx++] = (uint8_t)(0xFF & (len >> 8));
     header_buf[header_idx++] = (uint8_t)(0xFF & (len >> 0));
 
-    computed_checksum = compute_checksum(header_buf + SP_NUM_ZEROS, CMD_HEADER_LEN, buf, len);
+    computed_checksum = compute_checksum(&header_buf[SP_NUM_ZEROS], CMD_HEADER_LEN, buf, len);
 
     transport_write(header_buf, SP_HEADER_SIZE);
 
@@ -478,7 +745,6 @@ static void send_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t
     checksum_buff[0] = (computed_checksum >> 8);
     checksum_buff[1] = (computed_checksum >> 0);
     transport_write(checksum_buff, 2);
-
 }
 
 /**
@@ -518,13 +784,11 @@ static void send_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t
  *     -108 transport_read failed getting FRAME_START
  *     -109 transport_read failed getting header
  */
+static uint8_t _ll_ifc_start_byte = 0;
+static uint8_t _ll_ifc_temp_byte;
+
 static int32_t recv_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint16_t len)
 {
-    uint8_t  header_buf[RESP_HEADER_LEN];
-    uint16_t header_idx;
-
-    uint8_t curr_byte = 0;
-    uint8_t checksum_buff[2];
     uint16_t computed_checksum;
     int32_t ret_value = 0;
     int32_t ret;
@@ -532,6 +796,7 @@ static int32_t recv_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint1
     memset(header_buf, 0, sizeof(header_buf));
 
     struct time time_start, time_now;
+
     if (gettime(&time_start) < 0)
     {
         return LL_IFC_ERROR_HAL_CALL_FAILED;
@@ -539,12 +804,14 @@ static int32_t recv_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint1
 
     do
     {
+
         /* Timeout of infinite Rx loop if responses never show up*/
-        ret = transport_read(&curr_byte, 1);
+        ret = transport_read(&_ll_ifc_start_byte, 1);
 
         if (gettime(&time_now) < 0)
         {
             return LL_IFC_ERROR_HAL_CALL_FAILED;
+       
         }
 
         if(time_now.tv_sec - time_start.tv_sec > 2)
@@ -552,7 +819,7 @@ static int32_t recv_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint1
             len = 0;
             return LL_IFC_ERROR_HOST_INTERFACE_TIMEOUT;
         }
-    } while(curr_byte != FRAME_START);
+    } while(_ll_ifc_start_byte != FRAME_START);
 
     if (ret < 0)
     {
@@ -563,7 +830,7 @@ static int32_t recv_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint1
     header_idx = 0;
     header_buf[header_idx++] = FRAME_START;
 
-    ret = transport_read(header_buf + 1, RESP_HEADER_LEN - 1);
+    ret = transport_read(&header_buf[header_idx], RESP_HEADER_LEN - 1);
     if (ret < 0)
     {
         /* transport_read failed - return an error */
@@ -595,10 +862,11 @@ static int32_t recv_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint1
         int32_t ret;
         do
         {
-            uint8_t temp_byte;
-            ret = transport_read(&temp_byte, 1);
+
+            ret = transport_read(&_ll_ifc_temp_byte, 1);
         }
         while (ret == 0);
+
         return LL_IFC_ERROR_BUFFER_TOO_SMALL;
     }
     else if (len_from_header < len)
@@ -609,7 +877,6 @@ static int32_t recv_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint1
 
     if (ret_value == 0)
     {
-
         // If we got here, then we:
         // 1) Received the FRAME_START in the response
         // 2) The message number matched
@@ -620,18 +887,27 @@ static int32_t recv_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint1
         // Grab the payload if there is supposed to be one
         if ((buf != NULL) && (len > 0))
         {
-            transport_read(buf, len);
+             ret = transport_read(buf, len);
+             if (ret < 0)
+              {
+                 return -2;
+              }
         }
-    }
 
-    // Finally, make sure the checksum matches
-    transport_read(checksum_buff, 2);
+        // Finally, make sure the checksum matches
+        ret = transport_read(checksum_buff, 2);
+        if (ret < 0)
+        {
+           return -2;
+         }
 
-    computed_checksum = compute_checksum(header_buf, RESP_HEADER_LEN, buf, len);
-    uint16_t rx_checksum = ((uint16_t)checksum_buff[0] << 8) + checksum_buff[1];
-    if (rx_checksum != computed_checksum)
-    {
-        return LL_IFC_ERROR_CHECKSUM_MISMATCH;
+        computed_checksum = compute_checksum(header_buf, RESP_HEADER_LEN, buf, len);
+        uint16_t rx_checksum = ((uint16_t)checksum_buff[0] << 8) + checksum_buff[1];
+        if (rx_checksum != computed_checksum)
+        {
+            return LL_IFC_ERROR_CHECKSUM_MISMATCH;
+
+        }
     }
 
     if (ret_value == 0)
@@ -645,6 +921,7 @@ static int32_t recv_packet(opcode_t op, uint8_t message_num, uint8_t *buf, uint1
         return ret_value;
     }
 }
+
 
 /**
  * @brief

@@ -15,10 +15,11 @@
  */
 
 #define IFC_VERSION_MAJOR (0)
-#define IFC_VERSION_MINOR (6)
+#define IFC_VERSION_MINOR (8)
 #define IFC_VERSION_TAG (0)
 
-#define APP_TOKEN_LEN (10)
+#define APP_TOKEN_LEN  (10)
+#define UNIQUE_ID_LEN  (8)
 #define MAX_RX_MSG_LEN (128)
 
 extern const uint32_t OPEN_NET_TOKEN;   ///< Open network token (0x4f50454e)
@@ -64,7 +65,7 @@ typedef enum
     OP_CONN_FILT_SET = 93,          ///< 0x5D
     OP_CONN_FILT_GET = 94,          ///< 0x5E
 //STRIPTHIS!START
-    OP_RESERVED0 = 96,              ///< 0x60
+    OP_RESERVED0 = 96,              ///< 0x5F
     OP_RESERVED1 = 97,              ///< 0x60
 //STRIPTHIS!STOP
     OP_TX_CW = 98,                  ///< 0x61
@@ -94,7 +95,25 @@ typedef enum
     OP_TIMESTAMP             = 131, ///< 0x83  reserved, not fully implemented
     OP_SEND_TIMESTAMP        = 132, ///< 0x84  reserved, not fully implemented
 //STRIPTHIS!STOP
-
+    OP_GET_SCAN_INFO         = 133, ///< 0x85
+    OP_CONN_TO_GW_CH         = 134, ///< 0x86
+    OP_DISCONNECT            = 135, ///< 0x87
+    OP_SCAN_MODE_GET         = 136, ///< 0x88
+    OP_SCAN_MODE_SET         = 137, ///< 0x89
+    OP_SCAN_THRESHOLD_GET    = 138, ///< 0x8A
+    OP_SCAN_THRESHOLD_SET    = 139, ///< 0x8B
+    OP_SCAN_ATTEMPTS_GET     = 140, ///< 0x8C
+    OP_SCAN_ATTEMPTS_SET     = 141, ///< 0x8D
+    OP_SCAN_ATTEMPTS_LEFT    = 142, ///< 0x8E
+    OP_RSSI_OFFSET_GET       = 143, ///< 0x8F
+    OP_RSSI_OFFSET_SET       = 144, ///< 0x90
+    OP_CTRL_MSG_ENABLED_SET  = 145, ///< 0x91
+    OP_CTRL_MSG_ENABLED_GET  = 146, ///< 0x92
+    OP_GPIO_ENABLE_PIN       = 147, ///< 0x93
+    OP_GPIO_DISABLE_PIN      = 148, ///< 0x94
+    OP_GPIO_PIN_STATUS       = 149, ///< 0x95
+    OP_GPIO_SET_HIGH         = 150, ///< 0x96
+    OP_GPIO_SET_LOW          = 151, ///< 0x97
 //STRIPTHIS!START
     OP_FCC_TEST = 245,              ///< 0xF5
     OP_PER_TEST_TX = 246,           ///< 0xF6
@@ -277,6 +296,9 @@ typedef enum ll_ifc_error_codes_e {
 #define IRQ_FLAGS_TX_ERROR                    (0x00000020UL)  ///< Set every time there is a Tx Error
 #define IRQ_FLAGS_RX_DONE                     (0x00000100UL)  ///< Set every time a new packet is received
 #define IRQ_FLAGS_MAILBOX_EMPTY               (0x00000200UL)  ///< Set when a GW reports an empty mailbox
+
+#define IRQ_FLAGS_SYNC_FAILED                 (0x00000400UL)  ///< Set when syncing to a channel fails
+
 #define IRQ_FLAGS_CONNECTED                   (0x00001000UL)  ///< Set every time we transition from the disconnected -> connected state
 #define IRQ_FLAGS_DISCONNECTED                (0x00002000UL)  ///< Set every time we transition from the connected -> disconnected state
 //STRIPTHIS!START
@@ -289,12 +311,16 @@ typedef enum ll_ifc_error_codes_e {
 #define IRQ_FLAGS_INITIALIZATION_COMPLETE     (0x00080000UL)  ///< Set every time the MAC has completed initialization
 #define IRQ_FLAGS_CRYPTO_ERROR                (0x00100000UL)  ///< Set when a crypto exchange attempt fails
 #define IRQ_FLAGS_APP_TOKEN_ERROR             (0x00200000UL)  ///< Set when an application token registration fails
+#define IRQ_FLAGS_DOWNLINK_ERROR              (0x00400000UL)  ///< Set when a downlink registration fails
+#define IRQ_CLOUD_GPIO_2_INTERRUPT            (0x01000000UL)  ///< Set when the cloud GPIO input is triggered
+#define IRQ_CLOUD_GPIO_3_INTERRUPT            (0x02000000UL)  ///< Set when the cloud GPIO input is triggered
+#define IRQ_FLAGS_ASSERT                      (0x80000000UL)  ///< Set every time we transition from the connected->disconnected state
 //STRIPTHIS!START
 // LifeRaft IRQ flags
-#define IRQ_FLAGS_STATUS_REQ                  (0x00400000UL)  ///< Set when we want to request the status of the host controller
-#define IRQ_FLAGS_FIRMWARE_REQ                (0x00800000UL)  ///< Set when we want to request the firmware data of the host controller
+//#define IRQ_FLAGS_STATUS_REQ                  (0x00400000UL)  ///< Set when we want to request the status of the host controller
+//#define IRQ_FLAGS_FIRMWARE_REQ                (0x00800000UL)  ///< Set when we want to request the firmware data of the host controller
 //STRIPTHIS!STOP
-#define IRQ_FLAGS_ASSERT                      (0x80000000UL)  ///< Set every time we transition from the connected->disconnected state
+
 
 /**
  * @brief

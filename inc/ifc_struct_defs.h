@@ -3,10 +3,16 @@
 
 #include <stdint.h>
 
-#define NET_INFO_BUFF_SIZE (30)
+#define NET_INFO_BUFF_SIZE (31)
 #define DL_BAND_CFG_SIZE (3 * 4 + 2)
 #define STATS_SIZE (10 * 4)
 #define TIME_INFO_SIZE (6 * 2 + 1)
+#define GW_SCAN_INFO_SIZE (13)
+#define MAX_GW_SCAN_RESULTS (16)
+#define NUM_GW_SCANS_TO_KEEP (8) // sort through the list and find the best
+#define MAX_GW_KEY_LIST      (16)  // number of gateways to keep keys in gw_list
+
+#define GW_SCAN_INFO_BUFF_SIZE (MAX_GW_SCAN_RESULTS * GW_SCAN_INFO_SIZE + 1)
 
 #ifndef PACKED
 #if defined ( __CC_ARM )
@@ -56,6 +62,7 @@ typedef struct PACKED llabs_network_info_t
     llabs_connect_status_t connection_status;
     uint8_t is_scanning_gateways;
     uint64_t gateway_id;
+    uint8_t is_repeater;
 } llabs_network_info_t;
 
 // Defines the band-specific frequency parameters (FCC 902-928, etc...)
@@ -82,6 +89,30 @@ typedef struct llabs_stats
     uint32_t num_rx_errors;             ///< Number of times we received a Rx error from the back end
 } llabs_stats_t;
 
+typedef struct PACKED llabs_gateway_scan_results
+{
+    uint64_t id;
+    int16_t rssi;
+    int8_t snr;
+    int8_t channel;
+    uint8_t is_repeater;
+} llabs_gateway_scan_results_t;
+
+typedef struct PACKED llabs_gateway_scan_results_alt
+{
+    uint64_t id;
+    int16_t rssi;
+    int8_t error_count;
+    int8_t channel;
+    uint8_t is_active;
+} llabs_gateway_scan_results_alt_t;
+
+typedef union llabs_gateway_list_data
+{
+    llabs_gateway_scan_results_t gw_results;
+    llabs_gateway_scan_results_alt_t gw_data;
+}llabs_gateway_list_data_t;
+
 typedef struct PACKED llabs_time
 {
     uint32_t seconds;                   ///< Seconds since UNIX epoch 00:00:00 UTC on 1 January 1970
@@ -95,15 +126,21 @@ typedef struct PACKED llabs_time_info
     llabs_time_t last_sync;
 } llabs_time_info_t;
 
-void ll_net_info_deserialize(const uint8_t buff[NET_INFO_BUFF_SIZE], llabs_network_info_t * net_info);
-uint16_t ll_net_info_serialize(const llabs_network_info_t * net_info, uint8_t buff[NET_INFO_BUFF_SIZE]);
-void ll_dl_band_cfg_deserialize(const uint8_t buff[DL_BAND_CFG_SIZE], llabs_dl_band_cfg_t * dl_cfg);
-uint16_t ll_dl_band_cfg_serialize(const llabs_dl_band_cfg_t * dl_cfg, uint8_t buff[DL_BAND_CFG_SIZE]);
-void ll_stats_deserialize(const uint8_t buff[STATS_SIZE], llabs_stats_t * stats);
-uint16_t ll_stats_serialize(const llabs_stats_t * stats, uint8_t buff[STATS_SIZE]);
+void ll_net_info_deserialize(const uint8_t buff[NET_INFO_BUFF_SIZE],
+                             llabs_network_info_t *net_info);
+uint16_t ll_net_info_serialize(const llabs_network_info_t *net_info,
+                               uint8_t buff[NET_INFO_BUFF_SIZE]);
+void ll_gw_scan_result_deserialize(const uint8_t buff[GW_SCAN_INFO_BUFF_SIZE],
+                                   llabs_gateway_scan_results_t *scan_result, uint8_t *num_gw);
+uint16_t ll_gw_scan_result_serialize(llabs_gateway_scan_results_t scan_result,
+                                      uint8_t num_gw, uint8_t buff[GW_SCAN_INFO_BUFF_SIZE]);
+void ll_dl_band_cfg_deserialize(const uint8_t buff[DL_BAND_CFG_SIZE], llabs_dl_band_cfg_t *dl_cfg);
+uint16_t ll_dl_band_cfg_serialize(const llabs_dl_band_cfg_t *dl_cfg,
+                                  uint8_t buff[DL_BAND_CFG_SIZE]);
+void ll_stats_deserialize(const uint8_t buff[STATS_SIZE], llabs_stats_t *stats);
+uint16_t ll_stats_serialize(const llabs_stats_t *stats, uint8_t buff[STATS_SIZE]);
 void ll_time_deserialize(const uint8_t buff[TIME_INFO_SIZE], llabs_time_info_t *time_info);
 uint16_t ll_time_serialize(const llabs_time_info_t *time_info, uint8_t buff[TIME_INFO_SIZE]);
-
 
 /** @} (end addtogroup Module_Interface) */
 
@@ -118,14 +155,14 @@ uint16_t ll_time_serialize(const llabs_time_info_t *time_info, uint8_t buff[TIME
  * messages over the host interface.  The write_* functions serialize an
  * integer into a byte stream , and the read_* functions deserialize an
  * integer from a byte stream.
- * 
+ *
  * See <a href="https://en.wikipedia.org/wiki/Serialization">
  * serialization</a> on Wikipedia for more details about why these functions
  * exist.
  */
- /**
- * @{
- */
+/**
+* @{
+*/
 
 /**
  * @brief

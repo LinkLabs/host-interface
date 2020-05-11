@@ -53,6 +53,7 @@ void ll_net_info_deserialize(const uint8_t buff[NET_INFO_BUFF_SIZE], llabs_netwo
     net_info->connection_status = (llabs_connect_status_t) read_uint8(&b);
     net_info->is_scanning_gateways = read_uint8(&b);
     net_info->gateway_id = read_uint64(&b);
+    net_info->is_repeater = read_uint8(&b);
 }
 
 // Serializes an llabs_network_info_t struct into a buffer to be sent over the host interface.
@@ -70,6 +71,32 @@ uint16_t ll_net_info_serialize(const llabs_network_info_t *net_info, uint8_t buf
     write_uint8(net_info->connection_status, &buff_cpy);
     write_uint8(net_info->is_scanning_gateways, &buff_cpy);
     write_uint64(net_info->gateway_id, &buff_cpy);
+    write_uint8(net_info->is_repeater, &buff_cpy);
+    return buff_cpy - buff;
+}
+
+void ll_gw_scan_result_deserialize(const uint8_t buff[GW_SCAN_INFO_BUFF_SIZE],
+                                   llabs_gateway_scan_results_t *scan_result, uint8_t *num_gw)
+{
+    uint8_t const *b = buff;
+    *num_gw = read_uint8(&b);
+    (*scan_result).id = read_uint64(&b);
+    (*scan_result).rssi = read_uint16(&b);
+    (*scan_result).snr = read_uint8(&b);
+    (*scan_result).channel = read_uint8(&b);
+    (*scan_result).is_repeater = read_uint8(&b);
+}
+
+uint16_t ll_gw_scan_result_serialize(llabs_gateway_scan_results_t scan_result, const uint8_t num_gw,
+                                     uint8_t buff[GW_SCAN_INFO_BUFF_SIZE])
+{
+    uint8_t *buff_cpy = buff;
+    write_uint8(num_gw, &buff_cpy);
+    write_uint64(scan_result.id, &buff_cpy);
+    write_uint16(scan_result.rssi, &buff_cpy);
+    write_uint8(scan_result.snr, &buff_cpy);
+    write_uint8(scan_result.channel, &buff_cpy);
+    write_uint8(scan_result.is_repeater, &buff_cpy);
     return buff_cpy - buff;
 }
 

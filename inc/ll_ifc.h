@@ -1,6 +1,6 @@
 #ifndef __LL_IFC_H
 #define __LL_IFC_H
-
+#include <stdbool.h>
 #include "ll_ifc_utils.h"
 
 #ifdef __cplusplus
@@ -513,19 +513,67 @@ extern "C" {
 #endif
 
     /**
-     * @brief
-     *   Reset the host-side state maintained by the interface.
-     *
-     * @details
-     *   The host implementation maintains a very small amount of state
-     *   including the current message identifier.  This function resets
-     *   this internal state and is intended to allow for controlled
-     *   testing.  This function is not normally used in production code.
-     *
-     * @return
-     *   0 - success, negative otherwise.
-     */
+    * @brief
+    *   Reset the host-side state maintained by the interface.
+    *
+    * @details
+    *   The host implementation maintains a very small amount of state
+    *   including the current message identifier.  This function resets
+    *   this internal state and is intended to allow for controlled
+    *   testing.  This function is not normally used in production code.
+    *
+    * @return
+    *   0 - success, negative otherwise.
+    */
+
     int32_t ll_reset_state( void );
+    /**
+    * @brief
+    *   Grabs a recursive mutex used to protect hal_read_write() in ll_ifc and
+    *      to make multi-operation ll_ifc calls work atomically.
+    *
+    * @details
+    *   None.
+    *
+    * @return
+    *   0 - success, negative otherwise.
+    */
+    bool transport_mutex_grab(void);
+    /**
+    * @brief
+    *   Releases the mutex grabbed with transport_mutex_grab().
+    *
+    * @details
+    *   None.
+    *
+    * @return
+    *   1 - success, zero otherwise
+    */
+    void transport_mutex_release(void);
+    /**
+    * @brief
+    *   Implement a critical section if the communication could be interrupted for
+    *   extended periods.
+    *
+    * @details
+    *   None.
+    *
+    * @return
+    *   1 - success, zero otherwise
+    */
+    bool transport_enter_critical(void);
+    /**
+    * @brief
+    *   Implement a critical section if the communication could be interrupted for
+    *   extended periods.
+    *
+    * @details
+    *   None.
+    *
+    * @return
+    *   1 - success, zero otherwise.
+    */
+    bool transport_exit_critical(void);
 
     /** @} (end defgroup Module_Interface) */
 
