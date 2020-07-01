@@ -78,6 +78,8 @@ extern "C" {
 #define LL_FTP_HDR_OFFSET_ID             (8)
 #define LL_FTP_HDR_OFFSET_VERSION        (12)
 #define LL_FTP_HDR_LEN                   (16)
+#define LL_FTP_HDR_OFFSET_DAT_LEN        (16)
+#define LL_FTP_HDR_OFFSET_DAT            (17)
 
 /**
  * @brief
